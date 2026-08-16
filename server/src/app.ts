@@ -140,10 +140,12 @@ export function createApp(ctx: DbCtx) {
     res.status(201).json(enrichEvent(ctx, event))
   })
 
-  const rangeSchema = z.object({
-    from: z.string().datetime().optional(),
-    to: z.string().datetime().optional(),
-  })
+  // Bounds accept UTC or offset forms; empty string means "not provided" (REG-6).
+  const bound = z.preprocess(
+    (v) => (v === '' ? undefined : v),
+    z.string().datetime({ offset: true }).optional(),
+  )
+  const rangeSchema = z.object({ from: bound, to: bound })
 
   app.get('/api/events', (req, res) => {
     const range = rangeSchema.safeParse({ from: req.query.from, to: req.query.to })
@@ -198,7 +200,7 @@ export function createApp(ctx: DbCtx) {
     const cal = ical({ name: 'TCG Event Calendar' })
     cal.createEvent({
       // RFC 5545 wants globally unique UIDs — domain half is deployment-configurable.
-      id: `event-${event.id}@${process.env.APP_DOMAIN ?? 'ed-take-home.example'}`,
+      id: `event-${event.id}@${process.env.APP_DOMAIN?.trim() || 'ed-take-home.example'}`,
       start: new Date(event.startTime),
       end: new Date(enriched.endTime),
       summary: event.name,
@@ -294,9 +296,16 @@ export function createApp(ctx: DbCtx) {
       next(err)
       return
     }
-    const e = err as { type?: string; status?: number }
+    const e = err as { type?: string; status?: number; statusCode?: number }
     if (e.type === 'entity.parse.failed' || (err instanceof SyntaxError && e.status === 400)) {
       res.status(400).json({ error: 'INVALID_JSON', message: 'request body is not valid JSON' })
+      return
+    }
+    // Body-parser/client errors carry their own 4xx (413 too large, 415 encoding, …) —
+    // keep the status, keep the JSON contract, don't escalate to 500.
+    const status = e.status ?? e.statusCode
+    if (typeof status === 'number' && status >= 400 && status < 500) {
+      res.status(status).json({ error: 'BAD_REQUEST', message: 'request rejected' })
       return
     }
     console.error(err)

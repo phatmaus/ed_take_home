@@ -35,7 +35,7 @@ CREATE TABLE IF NOT EXISTS formats (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   game_system_id INTEGER NOT NULL REFERENCES game_systems(id),
   name TEXT NOT NULL,
-  min_players INTEGER NOT NULL,
+  min_players INTEGER NOT NULL CHECK (min_players > 0),
   schedule_id INTEGER NOT NULL REFERENCES schedules(id)
 );
 CREATE TABLE IF NOT EXISTS events (
@@ -55,11 +55,28 @@ CREATE TABLE IF NOT EXISTS registrations (
 );
 `
 
+// Bump when the DDL changes shape/constraints. CREATE IF NOT EXISTS never alters
+// existing tables, so a DB file from an older DDL must be refused loudly (REG-1/REG-2)
+// rather than silently running without e.g. the NOCASE duplicate protection.
+const SCHEMA_VERSION = 1
+
 export function openDb(path: string = process.env.DB_PATH ?? 'data.db') {
   const sqlite = new Database(path)
   sqlite.pragma('journal_mode = WAL')
   sqlite.pragma('foreign_keys = ON')
+  const hasTables = sqlite
+    .prepare(`SELECT 1 FROM sqlite_master WHERE type='table' AND name='events'`)
+    .get()
+  const version = sqlite.pragma('user_version', { simple: true }) as number
+  if (hasTables && version !== SCHEMA_VERSION) {
+    sqlite.close()
+    throw new Error(
+      `Database ${path} was created by an older schema (user_version ${version}, need ${SCHEMA_VERSION}). ` +
+        `Delete the file and re-run the seed (rm ${path}* && npm run seed), or docker compose down && up.`,
+    )
+  }
   sqlite.exec(DDL)
+  sqlite.pragma(`user_version = ${SCHEMA_VERSION}`)
   const db = drizzle(sqlite, { schema })
   return { sqlite, db }
 }

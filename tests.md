@@ -4,8 +4,8 @@ Updated in the same PR as any test change. TDD applies to pure logic and correct
 
 | Area | What | Tests | Status |
 |---|---|---|---|
-| shared | Duration derivation (Swiss buckets 4/8/9/16/17/30/32/33/128/256, <4 and non-integer rejection, custom fixed time, break add-on) | `shared/src/schedule.test.ts` (15) | ✅ TDD, green |
-| shared | Zod schemas (capacity 0/31/2.5/'ten', blank/whitespace names, malformed dates, trim) | `shared/src/validation.test.ts` (9) | ✅ TDD, green |
+| shared | Duration derivation (Swiss buckets 4/8/9/16/17/30/32/33/128/256, sub-4 **clamping** (spec changed by BE-2), non-integer/0/257 rejection, custom fixed time, break add-on) | `shared/src/schedule.test.ts` | ✅ TDD, green |
+| shared | Zod schemas (capacity 0/31/2.5/'ten', blank/whitespace names, malformed dates, trim, year bounds, whitespace collapse, per-format floor factory) | `shared/src/validation.test.ts` | ✅ TDD, green |
 | server | POST /api/events — derived min/max duration + endTime, capacity>30, capacity<minPlayers, unknown format, bad date | `server/src/app.test.ts` (17 total) | ✅ TDD, green |
 | server | POST /api/events/:id/registrations — EVENT_FULL vs ALREADY_REGISTERED vs 400 vs 404; last-seat concurrency (6 parallel → exactly one 201, count lands at capacity) | `server/src/app.test.ts` | ✅ TDD, green |
 | server | GET /api/events list + derived fields; /:id 404; invite.ics SUMMARY/DTSTART/DTEND/LOCATION/UID; /qr request-origin URL | `server/src/app.test.ts` | ✅ green |
@@ -20,3 +20,5 @@ Updated in the same PR as any test change. TDD applies to pure logic and correct
 - QR PNG content is asserted as a data URL, not decoded and verified to contain the URL.
 - No automated tests for the client (by design — Playwright e2e covers UX; see implementation_plan.md).
 - Past-date events accepted by design (README cut list).
+- `COLLATE NOCASE` folds ASCII only: `Renée`/`RENÉE` still register as two players (SQLite limitation; noted, accepted).
+- Legacy DB files (pre schema-versioning) are refused with a delete-and-reseed message rather than migrated (`server/src/db.test.ts`).

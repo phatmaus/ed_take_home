@@ -1,3 +1,6 @@
+// Documents table SHAPE for typed queries only. Constraints (CHECKs, NOCASE collation,
+// value-object unique indexes, schema versioning) live in db.ts's DDL — that file is
+// the source of truth; keep the two in sync when either changes.
 import { integer, sqliteTable, text, unique } from 'drizzle-orm/sqlite-core'
 
 export const gameSystems = sqliteTable('game_systems', {

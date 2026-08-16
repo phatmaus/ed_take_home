@@ -39,3 +39,25 @@ Concurrency oversell: unbreakable in-process (20 parallel: exactly one 201) **an
 ## ⚠️ Spec-level test change (BE-2) — Eugene informed
 
 `shared/src/schedule.test.ts` asserted `swissRounds(3)` throws. That test encoded my (Fable's) bucket-table floor, but it contradicts the *approved data model's* explicit promises ("minPlayers is data, not a constant"; "4th game/non-card game = one template entry, zero core changes"). I am confident the test was wrong at the spec level and am changing it to assert clamping (players < 4 → 3 rounds), keeping the non-integer and >256 throws. Flagged here per the tests-are-spec rule.
+
+---
+
+## Second pass (scoped re-review): Fable @ medium (repro re-runs) + Opus 5 @ high (diff-driven regression hunt)
+
+**Verdicts:** all accepted findings **FIXED** (BE-13/BE-18 partial: missing schema.ts pointer comment; stale tests.md row). Concurrency guard re-verified unbroken: 20 parallel distinct-name and 20 parallel case-variant registrations both yield exactly one 201. Eugene suggested swapping the model lenses for pass two; kept as-is mid-flight (Opus-high demonstrably stronger on the code-read task) — logged judgment call.
+
+**New findings (REG-*), all triaged Accept unless noted:**
+
+| # | Sev | Finding | Resolution |
+|---|---|---|---|
+| REG-1 | medium | DDL fixes (NOCASE, CHECKs) are inert on pre-existing DB files — `CREATE IF NOT EXISTS` never alters; live-repro'd a case-duplicate 201 on a legacy DB. | **Fixed:** `user_version` schema stamp; legacy files refused at boot with a delete-and-reseed message. |
+| REG-2 | med-low | `ux_swiss_params` can brick boot on a legacy DB holding pre-fix duplicate rows (raw stack, no listen). | **Fixed** by the same version guard (legacy DBs never reach DDL execution). |
+| REG-3 | low-med | New error middleware collapsed body-parser 4xx (413 too-large, 415) into 500s. | **Fixed:** honors `err.status` < 500, keeps JSON contract. |
+| REG-4 | low | `APP_DOMAIN=` (empty env) produced RFC-invalid `UID:event-4@`. | **Fixed:** trim-or-default. |
+| REG-5 | low | `min_players` had no CHECK — a 0 value now *silently vanishes* from the feed under BE-17's isolation. | **Fixed:** `CHECK (min_players > 0)`. |
+| REG-6 | low | from/to rejected date-offset forms and empty strings. | **Fixed:** `datetime({offset:true})`, empty = omitted. |
+| REG-7 | low | tests.md still described the pre-BE-2 throw behavior. | **Fixed** in ledger. |
+| — | note | `COLLATE NOCASE` is ASCII-only (`Renée`/`RENÉE` = two seats). | **Accepted-documented** (tests.md gap list). |
+| — | note | Docker static/SPA layers register after the JSON error middleware (errors there fall to Express default handler). | **Accepted-documented**; benign for static file serving, revisit if the server ever grows non-API HTML routes. |
+
+All REG fixes TDD'd (6 specs red-first: `server/src/db.test.ts`, REG block in `app.test.ts`); suite now 63 unit/API tests + 2 e2e, all green.
