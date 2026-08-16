@@ -117,3 +117,11 @@ Each entry summarizes a major AI interaction: what was asked, the outcome, and w
 **Outcome:** (a) split fields with targeted empty-messages; (b) `@fluentui/react-timepicker-compat` (15-min dropdown, freeform, h23); (c) first shipped as a freeform Combobox over previously used locations (no schema change — Claude flagged the closed-list entity as the alternative); (d) superseded by the full amendment: schema v2 Location entity, events.locationId FK, **wall-clock start times interpreted in the venue's IANA zone** (date-fns-tz; the previous model silently trusted the organizer's browser zone — a genuine correctness gap), opening-hours validation at max-capacity duration, closed dropdown with hours/tz hint, venue-local display. 7 new specs incl. cross-zone conversion; 67 tests green. Note on provenance: Eugene recalled specifying Location during the data-model review; the approved plan had transcribed location as a plain Event text field from his original field list — logged as a spec amendment caught by Eugene, whoever dropped it.
 
 **Verdict:** Eugene's requirements, Claude's implementation — accepted per iteration; (c)'s freeform interim was superseded by (d)'s entity within the hour, validating Claude's flagged alternative.
+
+## 15. Wrap-up: transcript + publication (2026-08-15 ~18:55)
+
+**Asked:** Generate the full session log, push, make the repo public.
+
+**Outcome:** Full `[+h:m:s]` transcript written to `ai_usage_raw.md` (anchored to git timestamps), pushed; repo flipped to public (first `gh` flag attempt failed on an unsupported option — retried with the correct syntax and verified PUBLIC).
+
+**Verdict:** Accepted as-is.
