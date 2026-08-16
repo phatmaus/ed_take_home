@@ -1,0 +1,8 @@
+services:
+  app:
+    build: .
+    ports:
+      - "3001:3001"
+    environment:
+      # EMPTY_DB=1 docker compose up  → start with an empty database (no sample data)
+      EMPTY_DB: ${EMPTY_DB:-}
