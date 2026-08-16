@@ -11,6 +11,18 @@ export type ScheduleInfo =
 
 // "The rules of Swiss" — part of the SWISS interpreter, deliberately a code constant,
 // not per-format data (see data_model_plan.md). Buckets: max players → rounds.
+//
+// This compresses to `Math.max(3, Math.ceil(Math.log2(players)))` — every bucket is a
+// power of two — but it stays a table on purpose:
+// - It is a transcription of the official round-count tables (MTG Tournament Rules
+//   Appendix E; Konami Tournament Policy) and can be diffed against them line by line.
+//   The formula has to be *derived* to match, including the non-obvious floor of 3
+//   (pure ceil(log2) would give 2 rounds for 4 players; no sanctioned table does).
+// - Real tables are only *mostly* log2: e.g. Play! Pokémon runs 5 rounds from 13
+//   players. If per-game fidelity ever matters, the table moves into SwissSchedule as
+//   data and a row edit absorbs any deviation; a formula would need special cases.
+// - The table bounds the domain explicitly (>256 is an error, not an extrapolation).
+// With the app's 30-player capacity ceiling only the first three rows are reachable.
 const SWISS_ROUND_BUCKETS: Array<[maxPlayers: number, rounds: number]> = [
   [8, 3],
   [16, 4],
