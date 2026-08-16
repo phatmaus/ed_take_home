@@ -12,7 +12,8 @@ export default function CreateEventPage() {
   const [formatId, setFormatId] = useState('')
   const [name, setName] = useState('')
   const [location, setLocation] = useState('')
-  const [startLocal, setStartLocal] = useState('')
+  const [startDate, setStartDate] = useState('')
+  const [startClock, setStartClock] = useState('')
   const [capacity, setCapacity] = useState('8')
   const [error, setError] = useState('')
 
@@ -52,18 +53,18 @@ export default function CreateEventPage() {
 
   const submit = async () => {
     setError('')
-    // datetime-local reports '' until BOTH date and time are filled — catch it before
-    // Zod so the user gets one human sentence, not ISO-8601 jargon.
-    if (!startLocal) {
-      setError('Please choose a date and start time.')
+    // Separate date + time inputs (a single datetime-local's segment editing confused
+    // real users — you can't type minutes until every segment to its left is filled).
+    if (!startDate || !startClock) {
+      setError(!startDate ? 'Please choose a date.' : 'Please choose a start time.')
       return
     }
     const candidate = {
       name,
       location,
       formatId: Number(formatId),
-      // datetime-local is naive local time; convert to ISO UTC.
-      startTime: startLocal ? new Date(startLocal).toISOString() : '',
+      // date + time are naive local time; convert to ISO UTC.
+      startTime: new Date(`${startDate}T${startClock}`).toISOString(),
       capacity: Number(capacity),
     }
     // Same shared schema the server enforces — incl. the per-format capacity floor.
@@ -134,14 +135,24 @@ export default function CreateEventPage() {
           onChange={(_, d) => setLocation(d.value)}
         />
       </Field>
-      <Field label="Date & start time">
-        <Input
-          data-testid="create-event-start"
-          type="datetime-local"
-          value={startLocal}
-          onChange={(_, d) => setStartLocal(d.value)}
-        />
-      </Field>
+      <div style={{ display: 'flex', gap: 12 }}>
+        <Field label="Date" style={{ flex: 1 }}>
+          <Input
+            data-testid="create-event-date"
+            type="date"
+            value={startDate}
+            onChange={(_, d) => setStartDate(d.value)}
+          />
+        </Field>
+        <Field label="Start time" style={{ flex: 1 }}>
+          <Input
+            data-testid="create-event-time"
+            type="time"
+            value={startClock}
+            onChange={(_, d) => setStartClock(d.value)}
+          />
+        </Field>
+      </div>
       <Field
         label={`Player capacity (max 30${selectedFormat ? `, min ${selectedFormat.minPlayers}` : ''})`}
       >

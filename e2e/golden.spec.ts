@@ -12,10 +12,11 @@ test('organizer creates an event and it appears on the calendar', async ({ page 
   await page.getByTestId('create-event-location').fill('E2E Test Store')
   const start = new Date()
   start.setDate(start.getDate() + 1)
-  const local = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}-${String(
+  const date = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}-${String(
     start.getDate(),
-  ).padStart(2, '0')}T19:00`
-  await page.getByTestId('create-event-start').fill(local)
+  ).padStart(2, '0')}`
+  await page.getByTestId('create-event-date').fill(date)
+  await page.getByTestId('create-event-time').fill('19:00')
   await page.getByTestId('create-event-capacity').fill('12')
   await page.getByTestId('create-event-submit').click()
 
