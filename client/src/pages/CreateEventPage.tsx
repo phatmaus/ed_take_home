@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button, Field, Input, Select } from '@fluentui/react-components'
-import { createEventSchema } from 'shared'
+import { createEventSchema, createEventSchemaFor } from 'shared'
 import { api, type EventDto, type Format, type GameSystem } from '../api'
 
 export default function CreateEventPage() {
@@ -60,13 +60,11 @@ export default function CreateEventPage() {
       startTime: startLocal ? new Date(startLocal).toISOString() : '',
       capacity: Number(capacity),
     }
-    const parsed = createEventSchema.safeParse(candidate)
+    // Same shared schema the server enforces — incl. the per-format capacity floor.
+    const schema = selectedFormat ? createEventSchemaFor(selectedFormat.minPlayers) : createEventSchema
+    const parsed = schema.safeParse(candidate)
     if (!parsed.success) {
       setError(parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; '))
-      return
-    }
-    if (selectedFormat && parsed.data.capacity < selectedFormat.minPlayers) {
-      setError(`${selectedFormat.name} needs at least ${selectedFormat.minPlayers} players`)
       return
     }
     try {
