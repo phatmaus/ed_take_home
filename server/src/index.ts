@@ -1,13 +1,10 @@
-import express from "express";
+import { createApp } from './app'
+import { openDb } from './db'
 
-const app = express();
-app.use(express.json());
+const ctx = openDb()
+const app = createApp(ctx)
 
-app.get("/api/health", (_req, res) => {
-  res.json({ ok: true });
-});
-
-const port = Number(process.env.PORT ?? 3001);
+const port = Number(process.env.PORT ?? 3001)
 app.listen(port, () => {
-  console.log(`server listening on :${port}`);
-});
+  console.log(`server listening on :${port}`)
+})
