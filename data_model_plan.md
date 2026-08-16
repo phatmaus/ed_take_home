@@ -54,12 +54,20 @@ Every Schedule row has exactly one child row, regardless of type — uniform dis
 
 Template-driven event properties (brief requires ≥2): **minPlayers** and the **entire duration derivation** (via schedule), plus the format list per game itself.
 
+### Location *(added post-review — Eugene's amendment: without it the timezone of an event is unknowable)*
+| Field | Type | Notes |
+|---|---|---|
+| id | PK | |
+| name | text, unique | |
+| openTime / closeTime | 'HH:mm' | close > open (no overnight venues in scope); events must fit within, at max-capacity duration |
+| timeZone | IANA text | **decides the UTC instant** for an event's wall-clock start — not the organizer's browser |
+
 ### Event
 | Field | Type | Notes |
 |---|---|---|
 | id | PK | |
 | name | text | |
-| location | text | goes into the `.ics` LOCATION field |
+| locationId | FK → Location | location name goes into the `.ics` LOCATION field |
 | formatId | FK → Format | |
 | startTime | datetime (UTC) | |
 | capacity | int | **validated: format.minPlayers ≤ capacity ≤ 30** (app ceiling per brief); the enforced registration limit |

@@ -1,4 +1,5 @@
 import express, { type NextFunction, type Request, type Response } from 'express'
+import { fromZonedTime } from 'date-fns-tz'
 import { eq } from 'drizzle-orm'
 import ical from 'ical-generator'
 import QRCode from 'qrcode'
@@ -51,8 +52,8 @@ function scheduleInfo(ctx: DbCtx, scheduleId: number): ScheduleInfo {
 interface EventRow {
   id: number
   name: string
-  location: string
   formatId: number
+  locationId: number
   startTime: string
   capacity: number
 }
@@ -63,6 +64,11 @@ function enrichEvent(ctx: DbCtx, event: EventRow) {
     .select()
     .from(t.gameSystems)
     .where(eq(t.gameSystems.id, format.gameSystemId))
+    .get()!
+  const location = ctx.db
+    .select()
+    .from(t.locations)
+    .where(eq(t.locations.id, event.locationId))
     .get()!
   const sched = scheduleInfo(ctx, format.scheduleId)
   const registeredCount = (
@@ -79,6 +85,8 @@ function enrichEvent(ctx: DbCtx, event: EventRow) {
     ...event,
     formatName: format.name,
     gameSystemName: game.name,
+    location: location.name,
+    timeZone: location.timeZone,
     minPlayers: format.minPlayers,
     registeredCount,
     spotsLeft: event.capacity - registeredCount,
@@ -87,6 +95,8 @@ function enrichEvent(ctx: DbCtx, event: EventRow) {
     endTime,
   }
 }
+
+const minutesOfDay = (hhmm: string) => Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3, 5))
 
 export function createApp(ctx: DbCtx) {
   const app = express()
@@ -98,6 +108,10 @@ export function createApp(ctx: DbCtx) {
 
   app.get('/api/game-systems', (_req, res) => {
     res.json(ctx.db.select().from(t.gameSystems).all())
+  })
+
+  app.get('/api/locations', (_req, res) => {
+    res.json(ctx.db.select().from(t.locations).all())
   })
 
   app.get('/api/formats', (req, res) => {
@@ -127,14 +141,38 @@ export function createApp(ctx: DbCtx) {
       res.status(400).json({ error: 'UNKNOWN_FORMAT', message: `format ${parsed.data.formatId} does not exist` })
       return
     }
+    const location = ctx.db
+      .select()
+      .from(t.locations)
+      .where(eq(t.locations.id, parsed.data.locationId))
+      .get()
+    if (!location) {
+      res.status(400).json({ error: 'UNKNOWN_LOCATION', message: `location ${parsed.data.locationId} does not exist` })
+      return
+    }
     // The true capacity floor is the format's minPlayers — same shared schema the client uses.
     const withFloor = createEventSchemaFor(format.minPlayers).safeParse(req.body)
     if (!withFloor.success) {
       res.status(400).json({ error: 'CAPACITY_BELOW_MIN', message: firstIssue(withFloor.error) })
       return
     }
-    // Normalize startTime so stored values have one canonical ISO form (instant-safe filtering).
-    const input = { ...withFloor.data, startTime: new Date(withFloor.data.startTime).toISOString() }
+    // startTime arrives as wall-clock time AT THE LOCATION; the location's IANA zone
+    // (not the organizer's browser) decides the UTC instant. DST handled by date-fns-tz.
+    const wall = withFloor.data.startTime.length === 16 ? withFloor.data.startTime + ':00' : withFloor.data.startTime
+    const utcStart = fromZonedTime(wall, location.timeZone)
+    // Opening-hours check: event must start at/after open and its worst-case end
+    // (max-capacity duration) must not run past close, same wall-clock day.
+    const sched = scheduleInfo(ctx, format.scheduleId)
+    const maxDuration = deriveDurationMinutes(sched, withFloor.data.capacity)
+    const startMin = minutesOfDay(wall.slice(11, 16))
+    if (startMin < minutesOfDay(location.openTime) || startMin + maxDuration > minutesOfDay(location.closeTime)) {
+      res.status(400).json({
+        error: 'OUTSIDE_OPENING_HOURS',
+        message: `${location.name} is open ${location.openTime}–${location.closeTime}; this event would run ${wall.slice(11, 16)}–${String(Math.floor(((startMin + maxDuration) % 1440) / 60)).padStart(2, '0')}:${String((startMin + maxDuration) % 60).padStart(2, '0')} at full capacity`,
+      })
+      return
+    }
+    const input = { ...withFloor.data, startTime: utcStart.toISOString() }
     const id = Number(ctx.db.insert(t.events).values(input).run().lastInsertRowid)
     const event = ctx.db.select().from(t.events).where(eq(t.events.id, id)).get()!
     res.status(201).json(enrichEvent(ctx, event))
@@ -204,7 +242,7 @@ export function createApp(ctx: DbCtx) {
       start: new Date(event.startTime),
       end: new Date(enriched.endTime),
       summary: event.name,
-      location: event.location,
+      location: enriched.location,
       description: `${enriched.gameSystemName} — ${enriched.formatName}. Runs ${enriched.minDurationMinutes}–${enriched.maxDurationMinutes} min depending on attendance.`,
     })
     res

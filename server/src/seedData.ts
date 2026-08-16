@@ -71,6 +71,7 @@ function seedInner(ctx: DbCtx, withSampleEvents: boolean) {
   for (const table of [
     'registrations',
     'events',
+    'locations',
     'formats',
     'swiss_schedules',
     'custom_schedules',
@@ -105,14 +106,14 @@ function seedInner(ctx: DbCtx, withSampleEvents: boolean) {
 
   const insertEvent = (
     name: string,
-    location: string,
+    locationId: number,
     formatId: number,
     startTime: string,
     capacity: number,
     players: string[],
   ) => {
     const eventId = Number(
-      ctx.db.insert(t.events).values({ name, location, formatId, startTime, capacity }).run()
+      ctx.db.insert(t.events).values({ name, locationId, formatId, startTime, capacity }).run()
         .lastInsertRowid,
     )
     const now = new Date().toISOString()
@@ -122,9 +123,19 @@ function seedInner(ctx: DbCtx, withSampleEvents: boolean) {
     return eventId
   }
 
+  const insertLocation = (name: string, openTime: string, closeTime: string, timeZone: string) =>
+    Number(
+      ctx.db.insert(t.locations).values({ name, openTime, closeTime, timeZone }).run()
+        .lastInsertRowid,
+    )
+  const locMox = insertLocation('Mox Boarding House', '10:00', '23:59', 'America/Los_Angeles')
+  const locCK = insertLocation('Card Kingdom', '09:00', '22:00', 'America/Los_Angeles')
+  const locUncles = insertLocation('Uncle’s Games', '11:00', '21:00', 'America/New_York')
+
   const templates = {
     gameSystems: { mtg, pokemon, yugioh },
     formats: { fmtStandard, fmtDraft, fmtCommander, fmtPokemon, fmtAdvanced },
+    locations: { locMox, locCK, locUncles },
   }
   if (!withSampleEvents) {
     return { ...templates, events: {} as Record<string, number> }
@@ -134,17 +145,18 @@ function seedInner(ctx: DbCtx, withSampleEvents: boolean) {
     ['Alice', 'Bob', 'Carol', 'Dave', 'Erin', 'Frank', 'Grace'].slice(0, n)
 
   // Dangerous presets per implementation_plan.md:
+  // Stored UTC instants chosen to be sane local times at each location's tz.
   const lastSeat = insertEvent(
-    'Draft Night', 'Mox Boarding House', fmtDraft, daysFromNow(5, 1), 8, names(7), // 1 seat left
+    'Draft Night', locMox, fmtDraft, daysFromNow(5, 1), 8, names(7), // 1 seat left; 18:00 PDT
   )
   const full = insertEvent(
-    'League Challenge', 'Card Kingdom', fmtPokemon, daysFromNow(2, 17), 4, names(4), // at capacity
+    'League Challenge', locCK, fmtPokemon, daysFromNow(2, 17), 4, names(4), // at capacity; 10:00 PDT
   )
   const minBoundary = insertEvent(
-    'Advanced Locals', 'Uncle’s Games', fmtAdvanced, daysFromNow(4, 18), 4, names(1), // capacity == minPlayers
+    'Advanced Locals', locUncles, fmtAdvanced, daysFromNow(4, 18), 4, names(1), // capacity == minPlayers; 14:00 EDT
   )
-  const normal = insertEvent('FNM Standard', 'Mox Boarding House', fmtStandard, daysFromNow(3, 1), 16, [])
-  const custom = insertEvent('Commander Night', 'Card Kingdom', fmtCommander, daysFromNow(7, 2), 8, names(2))
+  const normal = insertEvent('FNM Standard', locMox, fmtStandard, daysFromNow(3, 1), 16, [])
+  const custom = insertEvent('Commander Night', locCK, fmtCommander, daysFromNow(7, 2), 8, names(2))
 
   return { ...templates, events: { lastSeat, full, minBoundary, normal, custom } }
 }

@@ -38,10 +38,17 @@ CREATE TABLE IF NOT EXISTS formats (
   min_players INTEGER NOT NULL CHECK (min_players > 0),
   schedule_id INTEGER NOT NULL REFERENCES schedules(id)
 );
+CREATE TABLE IF NOT EXISTS locations (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL UNIQUE,
+  open_time TEXT NOT NULL,
+  close_time TEXT NOT NULL CHECK (close_time > open_time),
+  time_zone TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS events (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT NOT NULL,
-  location TEXT NOT NULL,
+  location_id INTEGER NOT NULL REFERENCES locations(id),
   format_id INTEGER NOT NULL REFERENCES formats(id),
   start_time TEXT NOT NULL,
   capacity INTEGER NOT NULL CHECK (capacity BETWEEN 1 AND ${MAX_CAPACITY})
@@ -58,7 +65,7 @@ CREATE TABLE IF NOT EXISTS registrations (
 // Bump when the DDL changes shape/constraints. CREATE IF NOT EXISTS never alters
 // existing tables, so a DB file from an older DDL must be refused loudly (REG-1/REG-2)
 // rather than silently running without e.g. the NOCASE duplicate protection.
-const SCHEMA_VERSION = 1
+const SCHEMA_VERSION = 2 // v2: Location entity (opening hours + time zone), events.location_id FK
 
 export function openDb(path: string = process.env.DB_PATH ?? 'data.db') {
   const sqlite = new Database(path)

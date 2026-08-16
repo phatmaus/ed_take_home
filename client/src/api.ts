@@ -11,10 +11,20 @@ export interface Format {
   scheduleId: number
 }
 
+export interface Location {
+  id: number
+  name: string
+  openTime: string
+  closeTime: string
+  timeZone: string
+}
+
 export interface EventDto {
   id: number
   name: string
   location: string
+  locationId: number
+  timeZone: string
   formatId: number
   startTime: string
   capacity: number

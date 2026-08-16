@@ -18,9 +18,11 @@ npm run seed   # sample data incl. a nearly-full event; re-running resets ALL da
 npm run dev    # client http://localhost:5173, API :3001
 ```
 
-Tests: `npm test` (63 unit/API tests) · `npx playwright test` (golden-path e2e; needs ports 3001/5173 free).
+Tests: `npm test` (67 unit/API tests) · `npx playwright test` (golden-path e2e; needs ports 3001/5173 free).
 
 ## Design write-up
+
+**Locations & time.** Locations are an entity (name, opening hours, IANA time zone). An event's start time is entered as wall-clock time *at the venue*; the server converts it to UTC with the location's zone (date-fns-tz, DST-safe) — the organizer's browser timezone is deliberately irrelevant. Events are validated to fit within opening hours at their max-capacity duration; `.ics` files carry the correct UTC instant, and the event page renders venue-local time.
 
 **Capacity.** Capacity lives on the Event row (validated `format.minPlayers ≤ capacity ≤ 30` — the ceiling is one shared constant used by the Zod schema, the API, and the SQLite `CHECK`). Registration is enforced in the API by a single atomic statement — `INSERT … SELECT … WHERE (SELECT COUNT(*) FROM registrations WHERE event_id=?) < (SELECT capacity …)` — so the count and the insert happen inside one SQLite write transaction. better-sqlite3 is synchronous and SQLite is single-writer, so concurrent last-seat attempts serialize; an adversarial review pass fired 20 parallel requests (and a 40-request two-process variant against one WAL database) at a one-seat event: exactly one 201, never an oversell. Duplicates are a distinct case: a case/whitespace-insensitive unique index on `(event_id, player_name)` plus an explicit probe means an already-registered player is told `ALREADY_REGISTERED` — even when the event is also full — while strangers get `EVENT_FULL`.
 

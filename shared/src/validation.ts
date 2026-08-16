@@ -3,18 +3,27 @@ import { z } from 'zod'
 // App-wide capacity ceiling per the brief ("up to 30 players").
 export const MAX_CAPACITY = 30
 
+// Wall-clock time at the event's location ('YYYY-MM-DDTHH:mm'); the server converts
+// to UTC using the location's IANA time zone. No 'Z'/offset — the location decides.
 const startTimeSchema = z
   .string()
-  .datetime({ message: 'startTime must be an ISO 8601 datetime' })
+  .regex(
+    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$/,
+    'startTime must be local wall-clock time, YYYY-MM-DDTHH:mm',
+  )
+  .refine((s) => !Number.isNaN(Date.parse(s + (s.length === 16 ? ':00Z' : 'Z'))), 'startTime is not a real date/time')
   // RFC 5545 DATE-TIME needs a 4-digit year, and derived end times must not overflow it.
   .refine((s) => {
-    const year = new Date(s).getUTCFullYear()
+    const year = Number(s.slice(0, 4))
     return year >= 2000 && year <= 9000
   }, 'please double-check the year on the start date (must be 2000–9000)')
 
 export const createEventSchema = z.object({
   name: z.string().trim().min(1, 'please enter an event name').max(100, 'event name is too long (max 100 characters)'),
-  location: z.string().trim().min(1, 'please enter a location').max(200, 'location is too long (max 200 characters)'),
+  locationId: z
+    .number({ invalid_type_error: 'please select a location' })
+    .int()
+    .positive('please select a location'),
   formatId: z
     .number({ invalid_type_error: 'please select a game and format' })
     .int()
