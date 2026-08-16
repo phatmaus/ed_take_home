@@ -1,25 +1,48 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { Badge, Button, Title3 } from '@fluentui/react-components'
-import { api, durationRange, type EventDto } from '../api'
+import { api, durationNote, type ApiError, type EventDto } from '../api'
 
 export default function EventPage() {
   const { id } = useParams()
   const [event, setEvent] = useState<EventDto | null>(null)
   const [qr, setQr] = useState<{ registrationUrl: string; qrDataUrl: string } | null>(null)
   const [notFound, setNotFound] = useState(false)
+  const [loadError, setLoadError] = useState(false)
 
   useEffect(() => {
+    setEvent(null)
+    setQr(null)
+    setNotFound(false)
+    setLoadError(false)
+    let stale = false
     api<EventDto>(`/api/events/${id}`)
-      .then(setEvent)
-      .catch(() => setNotFound(true))
+      .then((e) => {
+        if (!stale) setEvent(e)
+      })
+      .catch((err: ApiError) => {
+        if (stale) return
+        if (err.error === 'NOT_FOUND') setNotFound(true)
+        else setLoadError(true)
+      })
     api<{ registrationUrl: string; qrDataUrl: string }>(`/api/events/${id}/qr`)
-      .then(setQr)
+      .then((q) => {
+        if (!stale) setQr(q)
+      })
       .catch(() => {})
+    return () => {
+      stale = true
+    }
   }, [id])
 
   if (notFound) return <div data-testid="event-not-found">Event not found.</div>
-  if (!event) return <div>Loading…</div>
+  if (loadError)
+    return (
+      <div data-testid="event-error" role="alert">
+        Could not load this event — is the server running?
+      </div>
+    )
+  if (!event) return <div data-testid="event-loading">Loading…</div>
 
   const start = new Date(event.startTime)
   return (
@@ -30,7 +53,7 @@ export default function EventPage() {
           {event.gameSystemName} — {event.formatName}
         </div>
         <div data-testid="event-when">
-          {start.toLocaleString()} · runs {durationRange(event)} depending on attendance
+          {start.toLocaleString()} · {durationNote(event)}
         </div>
         <div data-testid="event-location">{event.location}</div>
         <div>
@@ -47,11 +70,13 @@ export default function EventPage() {
           <a href={`/api/events/${event.id}/invite.ics`} data-testid="event-ics-link">
             <Button>Add to calendar (.ics)</Button>
           </a>
-          <Link to={`/events/${event.id}/register`}>
-            <Button appearance="primary" data-testid="event-register-link">
-              Register
-            </Button>
-          </Link>
+          {event.spotsLeft > 0 && (
+            <Link to={`/events/${event.id}/register`}>
+              <Button appearance="primary" data-testid="event-register-link">
+                Register
+              </Button>
+            </Link>
+          )}
         </div>
       </div>
       {qr && (
