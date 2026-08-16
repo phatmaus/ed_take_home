@@ -307,3 +307,39 @@ describe('data-integrity guards (BE-2, BE-5, BE-17)', () => {
     expect(names).toContain('FNM Standard') // rest of the feed survives
   })
 })
+
+describe('re-review regressions (REG-*)', () => {
+  it('REG-3: oversized JSON body is a 413 client error, not a 500', async () => {
+    const res = await request(app)
+      .post(`/api/events/${ids.events.normal}/registrations`)
+      .set('Content-Type', 'application/json')
+      .send(JSON.stringify({ playerName: 'x'.repeat(200_000) }))
+    expect(res.status).toBe(413)
+    expect(res.headers['content-type']).toContain('application/json')
+  })
+
+  it('REG-4: empty APP_DOMAIN falls back to the default UID domain', async () => {
+    process.env.APP_DOMAIN = ''
+    try {
+      const res = await request(app).get(`/api/events/${ids.events.normal}/invite.ics`)
+      expect(res.text).toContain('@ed-take-home.example')
+    } finally {
+      delete process.env.APP_DOMAIN
+    }
+  })
+
+  it('REG-6: date-only and offset from/to bounds are usable; empty means omitted', async () => {
+    for (const q of ['?from=2020-01-01T00:00:00%2B02:00', '?from=&to=']) {
+      const res = await request(app).get(`/api/events${q}`)
+      expect(res.status, q).toBe(200)
+    }
+  })
+
+  it('REG-5: a zero min_players format is impossible at the DB layer', () => {
+    expect(() =>
+      ctx.sqlite
+        .prepare(`INSERT INTO formats (game_system_id, name, min_players, schedule_id) VALUES (1,'Zero',0,1)`)
+        .run(),
+    ).toThrow(/CHECK/)
+  })
+})

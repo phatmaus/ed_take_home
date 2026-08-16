@@ -69,3 +69,27 @@ Each entry summarizes a major AI interaction: what was asked, the outcome, and w
 **Outcome:** Repo created and pushed (github.com/phatmaus/ed_take_home). Plan drafted with: 6-PR sequence, API surface, page list, reviewer prompts for the backend panel (Fable high + 2× Opus 5 xhigh) and frontend reviewer (Opus 5 medium), testing policy, timebox budget. Claude endorsed the no-fan-out rule with reinforcement (serial dependencies, PR-clarity grading, review is where model diversity pays). **One push-back: the requested "Opus 4.8" reviewer isn't addressable** — sub-agent tooling pins model family only (`opus` = current Opus 5); proposed a second Opus 5 xhigh with a different review lens as the diversity-preserving stand-in, pending Eugene's approval.
 
 **Verdict:** Reviewed with one revision — Eugene rejected Claude's proposed second-Opus stand-in for the unaddressable Opus 4.8 reviewer, cutting the panel to two agents and lowering efforts one notch (Fable high→medium, Opus 5 xhigh→high) to protect the tight schedule. Plan updated accordingly.
+
+## 9. Execution: PRs 1–3 (scaffold, backend TDD, frontend) (2026-08-15 ~18:00)
+
+**Asked:** "execute" — implement per the approved plan.
+
+**Outcome:** PR 1 scaffold (npm create vite, deps verified, drizzle bumped to 0.45.2 clearing a fresh SQL-injection advisory); PR 2 shared+backend with genuine TDD (red commit then green commit, 41 tests incl. last-seat concurrency); PR 3 frontend (Fluent + FullCalendar, data-testids from the start). All tests/typechecks/builds green before each merge.
+
+**Verdict:** Accepted (proceeded per plan without intervention).
+
+## 10. Adversarial review cycle (2026-08-15 ~18:30)
+
+**Asked (per plan):** Backend panel Fable-medium + Opus5-high; frontend reviewer Opus 5. Mid-cycle, Eugene directed: start client-only fixes while waiting on the backend panel.
+
+**Outcome:** Frontend: 13 findings — the critical one **disproved a Claude factual claim that was backed by a passing test** (Vite proxy Host-header behavior → QR encoded a dead localhost:3001 URL; the test only echoed a header real traffic never carries). Backend: 18 combined findings (Fable 3, all subsumed by Opus's deeper versions; Opus +15 — incl. duplicate-on-full masking ALREADY_REGISTERED with proof the existing test was structurally blind to it, and a data-only 4th game crashing the whole feed). Both written to `front_end_review.md` / `back_end_review.md` with per-finding accept/reject triage; rejected: FE-10 liveness, FE-12 range fetch, BE-8 Host trust, BE-11 past events, BE-17 perf half (all documented in README cut list). Fixes: PR 5 (client-only, per-finding commits), PR 4 (backend + shared, 13 new specs written red-first, 57 total green). **One spec-level test edit** (BE-2: `swissRounds(<4)` now clamps instead of throwing) — Eugene informed per the tests-are-spec rule, rationale in back_end_review.md.
+
+**Verdict:** Review findings largely accepted (26 of 31); Eugene queried the second-pass lens assignment (suggested swapping Fable/Opus lenses); Claude acknowledged the swap idea as arguably better, kept the original split mid-flight with rationale (Opus-high demonstrably stronger on the diff-read task), logged as a judgment call.
+
+## 11. E2E, Docker, README (2026-08-15 ~19:00)
+
+**Asked (per plan):** Golden-path e2e only (edge cases owned by review), docker compose with seeded/empty variants, 1-page README.
+
+**Outcome:** 2 Playwright tests green (one flaky async-race in Claude's first calendar assertion, fixed); Docker image smoke-tested in-container (seeded API + SPA fallback → QR origin correct by construction); README with run commands, design write-up, and the AI-usage note citing the QR/Host-header incident as the rejected-output example.
+
+**Verdict:** Accepted; backend re-review (Fable medium + Opus high, scoped to fixes/regressions) in flight at time of writing.
