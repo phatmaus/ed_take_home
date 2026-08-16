@@ -40,9 +40,36 @@ describe('createEventSchema', () => {
   })
 })
 
+describe('createEventSchemaFor (BE-12/FE-5: shared capacity floor)', () => {
+  it('applies the format minPlayers as the capacity floor with a shared message', async () => {
+    const { createEventSchemaFor } = await import('./validation')
+    const schema = createEventSchemaFor(6)
+    expect(schema.safeParse({ ...validEvent, capacity: 5 }).success).toBe(false)
+    expect(schema.safeParse({ ...validEvent, capacity: 6 }).success).toBe(true)
+    const failure = schema.safeParse({ ...validEvent, capacity: 5 })
+    if (!failure.success) {
+      expect(failure.error.issues[0].message).toContain('at least 6')
+    }
+  })
+})
+
+describe('startTime year bounds (BE-7)', () => {
+  it('rejects years outside 2000–9000 (RFC 5545 DATE-TIME safety)', () => {
+    for (const startTime of ['0000-01-01T00:00:00.000Z', '9999-12-31T23:59:59.000Z']) {
+      expect(createEventSchema.safeParse({ ...validEvent, startTime }).success).toBe(false)
+    }
+  })
+})
+
 describe('registrationSchema', () => {
   it('accepts a simple name and trims it', () => {
     expect(registrationSchema.parse({ playerName: '  Jace Beleren ' })).toEqual({
+      playerName: 'Jace Beleren',
+    })
+  })
+
+  it('collapses inner whitespace so spacing variants are one identity (BE-15)', () => {
+    expect(registrationSchema.parse({ playerName: 'Jace \n  Beleren' })).toEqual({
       playerName: 'Jace Beleren',
     })
   })
