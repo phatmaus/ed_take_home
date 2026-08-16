@@ -61,3 +61,24 @@ Concurrency oversell: unbreakable in-process (20 parallel: exactly one 201) **an
 | — | note | Docker static/SPA layers register after the JSON error middleware (errors there fall to Express default handler). | **Accepted-documented**; benign for static file serving, revisit if the server ever grows non-API HTML routes. |
 
 All REG fixes TDD'd (6 specs red-first: `server/src/db.test.ts`, REG block in `app.test.ts`); suite now 63 unit/API tests + 2 e2e, all green.
+
+---
+
+## Third pass (lens swap, per Eugene): Opus 5 @ high functional attack · Fable @ medium diff/code read
+
+Scope: REG-fix verification + the previously-unreviewed PR 6 layer (docker, static/SPA, e2e config). All REG-1..7 re-repro'd FIXED by both lenses. Concurrency re-verified deeper than ever: in-process, cross-process (2 servers/1 WAL DB), and a 25-pair case-variant duplicate race — zero oversells, zero 500s. Static layer survived a full path-traversal battery.
+
+**The swap paid off — findings by severity (P3-*, consolidated across both reviewers):**
+
+| # | Sev | Finding | Resolution |
+|---|---|---|---|
+| P3-1 | **high** | `E2E_DB_PATH=""` (empty string — the exact `${VAR:-}` idiom compose files use) survived `??` and turned the Playwright webServer cleanup into **`rm -f *` in the repo root**; live-demonstrated in a sandbox. Also unquoted (word-splitting) and a predictable world-writable /tmp path. | **Fixed:** `\|\|` + trim, quoted interpolation, per-process tmpdir default. |
+| P3-2 | med-high | Every container restart re-ran the seed → all user data wiped AND ids renumbered (AUTOINCREMENT), so distributed QR links/ICS UIDs 404 after any `docker restart`. Found independently by both reviewers. | **Fixed:** seed only when the DB file doesn't exist; restarts preserve everything. README updated. |
+| P3-3 | medium | `EMPTY_DB=1` produced a permanently unusable app (no templates, no admin UI → no way to ever create an event) while the README advertised it as a supported mode. | **Fixed:** empty mode seeds templates (games/formats/schedules) but no sample events; seed script owns the branch. |
+| P3-4 | low-med | `HEAD` on client routes 404'd while `GET` 200'd (RFC 9110) — link checkers/unfurlers report QR links dead. | **Fixed:** fallback accepts GET+HEAD. |
+| P3-5 | low | SPA/API split by string prefix: `//api/health` got HTML 200, `/apix` got Express's HTML error page. | **Fixed:** slash-collapsed segment-aware check + JSON catch-all after the fallback. |
+| P3-6 | low | README/tests.md counts stale (57 vs 63); REG-6 test title claimed date-only bounds it neither tests nor the API accepts. | **Fixed:** counts corrected; test retitled (title-only edit, no assertion change). |
+| P3-7 | low | e2e hard-fails when ports 3001/5173 are busy; register test non-idempotent under retries (consumes the last seat). | **Accepted-documented** (README ports note, tests.md gap). |
+| P3-8 | low/doc | db.ts guard ordering: WAL pragma (a write) ran before the version check, so legacy/read-only DBs got a raw SQLite error instead of the friendly refusal; `BAD_REQUEST` flattened body-parser specifics; SWISS_ROUND_BUCKETS comment overclaimed line-by-line fidelity to MTR Appendix E (top band deviates); docker CMD honors only literal `EMPTY_DB=1`; seed not transactional; no static-mode boot log. | **Fixed:** guard-before-writes + DDL skipped on current DBs; BAD_REQUEST keeps the parser's message; comment softened to "mirrors … approximates the top band"; seed wrapped in a transaction; boot logs static mode. Literal-`1` semantics kept, documented in README. |
+
+Clean this pass: path traversal (8 encodings), method/verb matrix, error-contract battery, re-seed under live traffic (wipe order is reader-safe by construction), missing client/dist degradation, docker CMD fail-loud on seed failure, Dockerfile layer caching/workspaces wiring.
