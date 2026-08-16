@@ -93,3 +93,11 @@ Each entry summarizes a major AI interaction: what was asked, the outcome, and w
 **Outcome:** 2 Playwright tests green (one flaky async-race in Claude's first calendar assertion, fixed); Docker image smoke-tested in-container (seeded API + SPA fallback → QR origin correct by construction); README with run commands, design write-up, and the AI-usage note citing the QR/Host-header incident as the rejected-output example.
 
 **Verdict:** Accepted; backend re-review (Fable medium + Opus high, scoped to fixes/regressions) in flight at time of writing.
+
+## 12. Re-review closure: all fixes verified, 7 regressions found and fixed (2026-08-15 ~19:30)
+
+**Asked (per plan loop):** Scoped second pass. Mid-pass Eugene asked (a) why FE-12 was rejected (Claude defended the cut: client-side range fetching buys nothing at store scale and adds the async-race surface class of FE-2; API half was fixed as BE-4) and (b) whether non-existent routes have a 404 page (yes — client catch-all, event/register not-found states, JSON API 404).
+
+**Outcome:** Both re-reviewers confirmed every accepted backend finding FIXED and the concurrency guard unbroken (20 parallel case-variant same-name attempts → one 201). Opus's diff-hunt found 7 regressions in Claude's own fixes — most notably REG-1/2: the schema-level fixes (NOCASE, CHECKs) were inert on pre-existing DB files, live-reproduced as a case-duplicate 201 on a legacy DB; also 413s collapsed to 500s by the new error middleware. All 7 fixed TDD-style in PR 7 (schema `user_version` guard refusing legacy files loudly, status-preserving error middleware, min_players CHECK, offset-form range bounds, ledger correction); two notes accepted-documented (ASCII-only NOCASE, docker static-layer error ordering). Final state: 63 unit/API tests + 2 e2e, all green, 7 PRs merged.
+
+**Verdict:** Accepted. Notable for the AI-leverage criterion: the second pass caught real defects in the AI's own first-pass fixes — the review loop earned its cost twice.
