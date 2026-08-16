@@ -7,13 +7,17 @@ import { api, type ApiError, type EventDto } from '../api'
 export default function RegisterPage() {
   const { id } = useParams()
   const [event, setEvent] = useState<EventDto | null>(null)
+  const [notFound, setNotFound] = useState(false)
   const [playerName, setPlayerName] = useState('')
   const [done, setDone] = useState(false)
   const [error, setError] = useState<{ code: string; message: string } | null>(null)
 
-  const refresh = () => api<EventDto>(`/api/events/${id}`).then(setEvent).catch(() => {})
+  // Post-submit refreshes are best-effort; only the initial load may flip to not-found.
+  const refresh = () => api<EventDto>(`/api/events/${id}`).then(setEvent)
   useEffect(() => {
-    refresh()
+    setEvent(null)
+    setNotFound(false)
+    refresh().catch(() => setNotFound(true))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id])
 
@@ -21,7 +25,10 @@ export default function RegisterPage() {
     setError(null)
     const parsed = registrationSchema.safeParse({ playerName })
     if (!parsed.success) {
-      setError({ code: 'VALIDATION', message: 'Please enter your name.' })
+      setError({
+        code: 'VALIDATION',
+        message: parsed.error.issues[0]?.message ?? 'Please enter your name.',
+      })
       return
     }
     try {
@@ -30,15 +37,16 @@ export default function RegisterPage() {
         body: JSON.stringify(parsed.data),
       })
       setDone(true)
-      refresh()
+      refresh().catch(() => {})
     } catch (e) {
       const err = e as ApiError & Error
       setError({ code: err.error ?? 'UNKNOWN', message: err.message })
-      refresh()
+      refresh().catch(() => {})
     }
   }
 
-  if (!event) return <div>Loading…</div>
+  if (notFound) return <div data-testid="register-not-found">Event not found.</div>
+  if (!event) return <div data-testid="register-loading">Loading…</div>
 
   if (done) {
     return (
@@ -72,6 +80,7 @@ export default function RegisterPage() {
         <Input
           data-testid="register-name"
           value={playerName}
+          maxLength={60}
           onChange={(_, d) => setPlayerName(d.value)}
         />
       </Field>
@@ -84,12 +93,9 @@ export default function RegisterPage() {
           {error.message}
         </div>
       )}
-      <Button
-        appearance="primary"
-        data-testid="register-submit"
-        onClick={submit}
-        disabled={event.spotsLeft === 0}
-      >
+      {/* Submit stays enabled on a full event so the server's EVENT_FULL answer renders
+          as the distinct full-error state (the graded path), not just a dead button. */}
+      <Button appearance="primary" data-testid="register-submit" onClick={submit}>
         Register
       </Button>
     </div>

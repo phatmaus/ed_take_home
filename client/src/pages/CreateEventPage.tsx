@@ -16,8 +16,12 @@ export default function CreateEventPage() {
   const [capacity, setCapacity] = useState('8')
   const [error, setError] = useState('')
 
+  const [loadError, setLoadError] = useState(false)
+
   useEffect(() => {
-    api<GameSystem[]>('/api/game-systems').then(setGameSystems).catch(console.error)
+    api<GameSystem[]>('/api/game-systems')
+      .then(setGameSystems)
+      .catch(() => setLoadError(true))
   }, [])
 
   useEffect(() => {
@@ -26,7 +30,19 @@ export default function CreateEventPage() {
       setFormats([])
       return
     }
-    api<Format[]>(`/api/formats?gameSystemId=${gameSystemId}`).then(setFormats).catch(console.error)
+    // Staleness guard: a slow response for a previously selected game must not
+    // overwrite the list for the currently selected one.
+    let stale = false
+    api<Format[]>(`/api/formats?gameSystemId=${gameSystemId}`)
+      .then((f) => {
+        if (!stale) setFormats(f)
+      })
+      .catch(() => {
+        if (!stale) setLoadError(true)
+      })
+    return () => {
+      stale = true
+    }
   }, [gameSystemId])
 
   const selectedFormat = useMemo(
@@ -66,6 +82,11 @@ export default function CreateEventPage() {
 
   return (
     <div style={{ maxWidth: 480, display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {loadError && (
+        <div data-testid="create-event-load-error" role="alert" style={{ color: '#b10e1c' }}>
+          Could not load games/formats — is the server running?
+        </div>
+      )}
       <Field label="Game">
         <Select
           data-testid="create-event-game"

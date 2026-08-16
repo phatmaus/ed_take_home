@@ -5,7 +5,9 @@ export default defineConfig({
   plugins: [react()],
   server: {
     proxy: {
-      '/api': 'http://localhost:3001',
+      // changeOrigin must stay false: the server builds the QR registration URL
+      // from the request's Host header, which has to be the browser-facing origin.
+      '/api': { target: 'http://localhost:3001', changeOrigin: false },
     },
   },
 })
