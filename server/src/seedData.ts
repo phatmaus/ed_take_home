@@ -51,7 +51,22 @@ function daysFromNow(days: number, hourUtc: number): string {
   return d.toISOString()
 }
 
+// Templates only (game systems, schedules, formats) — the app is unusable without
+// these (no admin UI exists), so even an "empty" deployment needs them (P3-3).
+export function seedTemplates(ctx: DbCtx) {
+  return seedTx(ctx, false)
+}
+
 export function seedAll(ctx: DbCtx) {
+  return seedTx(ctx, true)
+}
+
+// Wrapped in a transaction so a mid-seed failure can't leave a half-wiped DB.
+function seedTx(ctx: DbCtx, withSampleEvents: boolean) {
+  return ctx.sqlite.transaction(() => seedInner(ctx, withSampleEvents))()
+}
+
+function seedInner(ctx: DbCtx, withSampleEvents: boolean) {
   // Wipe in FK order.
   for (const table of [
     'registrations',
@@ -107,6 +122,14 @@ export function seedAll(ctx: DbCtx) {
     return eventId
   }
 
+  const templates = {
+    gameSystems: { mtg, pokemon, yugioh },
+    formats: { fmtStandard, fmtDraft, fmtCommander, fmtPokemon, fmtAdvanced },
+  }
+  if (!withSampleEvents) {
+    return { ...templates, events: {} as Record<string, number> }
+  }
+
   const names = (n: number) =>
     ['Alice', 'Bob', 'Carol', 'Dave', 'Erin', 'Frank', 'Grace'].slice(0, n)
 
@@ -123,9 +146,5 @@ export function seedAll(ctx: DbCtx) {
   const normal = insertEvent('FNM Standard', 'Mox Boarding House', fmtStandard, daysFromNow(3, 1), 16, [])
   const custom = insertEvent('Commander Night', 'Card Kingdom', fmtCommander, daysFromNow(7, 2), 8, names(2))
 
-  return {
-    gameSystems: { mtg, pokemon, yugioh },
-    formats: { fmtStandard, fmtDraft, fmtCommander, fmtPokemon, fmtAdvanced },
-    events: { lastSeat, full, minBoundary, normal, custom },
-  }
+  return { ...templates, events: { lastSeat, full, minBoundary, normal, custom } }
 }
