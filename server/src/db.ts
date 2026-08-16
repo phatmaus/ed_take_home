@@ -62,7 +62,9 @@ const SCHEMA_VERSION = 1
 
 export function openDb(path: string = process.env.DB_PATH ?? 'data.db') {
   const sqlite = new Database(path)
-  sqlite.pragma('journal_mode = WAL')
+  // Read-only-safe pragma first; the version guard must fire BEFORE any write
+  // (WAL switch, DDL) so a legacy or read-only DB gets the friendly refusal,
+  // not a raw "attempt to write a readonly database" (P3 finding).
   sqlite.pragma('foreign_keys = ON')
   const hasTables = sqlite
     .prepare(`SELECT 1 FROM sqlite_master WHERE type='table' AND name='events'`)
@@ -75,8 +77,11 @@ export function openDb(path: string = process.env.DB_PATH ?? 'data.db') {
         `Delete the file and re-run the seed (rm ${path}* && npm run seed), or docker compose down && up.`,
     )
   }
-  sqlite.exec(DDL)
-  sqlite.pragma(`user_version = ${SCHEMA_VERSION}`)
+  if (!hasTables) {
+    sqlite.pragma('journal_mode = WAL')
+    sqlite.exec(DDL)
+    sqlite.pragma(`user_version = ${SCHEMA_VERSION}`)
+  }
   const db = drizzle(sqlite, { schema })
   return { sqlite, db }
 }
