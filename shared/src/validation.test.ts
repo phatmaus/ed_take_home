@@ -3,9 +3,9 @@ import { createEventSchema, registrationSchema } from './validation'
 
 const validEvent = {
   name: 'FNM Standard',
-  location: 'Card Kingdom, Seattle',
+  locationId: 1,
   formatId: 1,
-  startTime: '2026-08-21T18:00:00.000Z',
+  startTime: '2026-08-21T18:00',
   capacity: 16,
 }
 
@@ -24,13 +24,13 @@ describe('createEventSchema', () => {
     }
   })
 
-  it('rejects blank or whitespace-only name/location', () => {
+  it('rejects blank names and non-numeric locationId', () => {
     expect(createEventSchema.safeParse({ ...validEvent, name: '   ' }).success).toBe(false)
-    expect(createEventSchema.safeParse({ ...validEvent, location: '' }).success).toBe(false)
+    expect(createEventSchema.safeParse({ ...validEvent, locationId: 'store' }).success).toBe(false)
   })
 
   it('rejects malformed startTime', () => {
-    for (const startTime of ['tomorrow', '2026-13-40T99:00:00Z', '']) {
+    for (const startTime of ['tomorrow', '2026-13-40T99:00', '2026-08-21T18:00:00.000Z', '']) {
       expect(createEventSchema.safeParse({ ...validEvent, startTime }).success).toBe(false)
     }
   })
@@ -55,7 +55,7 @@ describe('createEventSchemaFor (BE-12/FE-5: shared capacity floor)', () => {
 
 describe('startTime year bounds (BE-7)', () => {
   it('rejects years outside 2000–9000 (RFC 5545 DATE-TIME safety)', () => {
-    for (const startTime of ['0000-01-01T00:00:00.000Z', '9999-12-31T23:59:59.000Z']) {
+    for (const startTime of ['0000-01-01T00:00', '9999-12-31T23:59']) {
       expect(createEventSchema.safeParse({ ...validEvent, startTime }).success).toBe(false)
     }
   })

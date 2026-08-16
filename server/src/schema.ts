@@ -42,14 +42,24 @@ export const formats = sqliteTable('formats', {
     .references(() => schedules.id),
 })
 
+export const locations = sqliteTable('locations', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  name: text('name').notNull().unique(),
+  openTime: text('open_time').notNull(), // 'HH:mm' wall clock
+  closeTime: text('close_time').notNull(), // 'HH:mm', must be after openTime (no overnight)
+  timeZone: text('time_zone').notNull(), // IANA, e.g. 'America/Los_Angeles'
+})
+
 export const events = sqliteTable('events', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   name: text('name').notNull(),
-  location: text('location').notNull(),
+  locationId: integer('location_id')
+    .notNull()
+    .references(() => locations.id),
   formatId: integer('format_id')
     .notNull()
     .references(() => formats.id),
-  startTime: text('start_time').notNull(),
+  startTime: text('start_time').notNull(), // UTC instant (converted from location wall time)
   capacity: integer('capacity').notNull(),
 })
 

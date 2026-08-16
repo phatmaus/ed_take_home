@@ -53,7 +53,12 @@ export default function EventPage() {
           {event.gameSystemName} — {event.formatName}
         </div>
         <div data-testid="event-when">
-          {start.toLocaleString()} · {durationNote(event)}
+          {start.toLocaleString(undefined, {
+            timeZone: event.timeZone,
+            dateStyle: 'medium',
+            timeStyle: 'short',
+          })}{' '}
+          at the venue · {durationNote(event)}
         </div>
         <div data-testid="event-location">{event.location}</div>
         <div>

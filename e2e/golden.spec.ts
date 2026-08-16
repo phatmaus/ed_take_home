@@ -9,7 +9,7 @@ test('organizer creates an event and it appears on the calendar', async ({ page 
   await page.getByTestId('create-event-game').selectOption({ label: 'Magic: The Gathering' })
   await page.getByTestId('create-event-format').selectOption({ label: 'Standard (min 4 players)' })
   await page.getByTestId('create-event-name').fill('E2E Standard Night')
-  await page.getByTestId('create-event-location').fill('E2E Test Store')
+  await page.getByTestId('create-event-location').selectOption({ label: 'Mox Boarding House' })
   const start = new Date()
   start.setDate(start.getDate() + 1)
   const date = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}-${String(

@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Button, Combobox, Field, Input, Option, Select } from '@fluentui/react-components'
+import { Button, Field, Input, Select } from '@fluentui/react-components'
 import { TimePicker } from '@fluentui/react-timepicker-compat'
 import { createEventSchema, createEventSchemaFor } from 'shared'
-import { api, type EventDto, type Format, type GameSystem } from '../api'
+import { api, type EventDto, type Format, type GameSystem, type Location } from '../api'
 
 export default function CreateEventPage() {
   const navigate = useNavigate()
@@ -12,23 +12,22 @@ export default function CreateEventPage() {
   const [gameSystemId, setGameSystemId] = useState('')
   const [formatId, setFormatId] = useState('')
   const [name, setName] = useState('')
-  const [location, setLocation] = useState('')
+  const [locationId, setLocationId] = useState('')
   const [startDate, setStartDate] = useState('')
   const [startClock, setStartClock] = useState('')
   const [capacity, setCapacity] = useState('8')
   const [error, setError] = useState('')
 
   const [loadError, setLoadError] = useState(false)
-  const [knownLocations, setKnownLocations] = useState<string[]>([])
+  const [locations, setLocations] = useState<Location[]>([])
 
   useEffect(() => {
     api<GameSystem[]>('/api/game-systems')
       .then(setGameSystems)
       .catch(() => setLoadError(true))
-    // Distinct locations already in use, offered as dropdown options (freeform allows new).
-    api<{ location: string }[]>('/api/events')
-      .then((events) => setKnownLocations([...new Set(events.map((e) => e.location))].sort()))
-      .catch(() => {})
+    api<Location[]>('/api/locations')
+      .then(setLocations)
+      .catch(() => setLoadError(true))
   }, [])
 
   useEffect(() => {
@@ -56,6 +55,10 @@ export default function CreateEventPage() {
     () => formats.find((f) => String(f.id) === formatId),
     [formats, formatId],
   )
+  const selectedLocation = useMemo(
+    () => locations.find((l) => String(l.id) === locationId),
+    [locations, locationId],
+  )
 
   const submit = async () => {
     setError('')
@@ -67,10 +70,11 @@ export default function CreateEventPage() {
     }
     const candidate = {
       name,
-      location,
+      locationId: Number(locationId),
       formatId: Number(formatId),
-      // date + time are naive local time; convert to ISO UTC.
-      startTime: new Date(`${startDate}T${startClock}`).toISOString(),
+      // Wall-clock time AT THE LOCATION — the server converts using the location's
+      // time zone; the organizer's browser zone is deliberately irrelevant.
+      startTime: `${startDate}T${startClock}`,
       capacity: Number(capacity),
     }
     // Same shared schema the server enforces — incl. the per-format capacity floor.
@@ -134,19 +138,25 @@ export default function CreateEventPage() {
       <Field label="Event name">
         <Input data-testid="create-event-name" value={name} onChange={(_, d) => setName(d.value)} />
       </Field>
-      <Field label="Location">
-        <Combobox
+      <Field
+        label={
+          selectedLocation
+            ? `Location (open ${selectedLocation.openTime}–${selectedLocation.closeTime}, ${selectedLocation.timeZone})`
+            : 'Location'
+        }
+      >
+        <Select
           data-testid="create-event-location"
-          freeform
-          placeholder={knownLocations.length ? 'Select or type a location…' : 'Type a location…'}
-          value={location}
-          onChange={(e) => setLocation(e.target.value)}
-          onOptionSelect={(_, d) => setLocation(d.optionText ?? '')}
+          value={locationId}
+          onChange={(_, d) => setLocationId(d.value)}
         >
-          {knownLocations.map((l) => (
-            <Option key={l}>{l}</Option>
+          <option value="">Select a location…</option>
+          {locations.map((l) => (
+            <option key={l.id} value={l.id}>
+              {l.name}
+            </option>
           ))}
-        </Combobox>
+        </Select>
       </Field>
       <div style={{ display: 'flex', gap: 12 }}>
         <Field label="Date" style={{ flex: 1 }}>

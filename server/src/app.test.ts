@@ -34,9 +34,9 @@ describe('reference data', () => {
 describe('POST /api/events', () => {
   const valid = () => ({
     name: 'Test Event',
-    location: 'Test Store',
+    locationId: ids.locations.locMox,
     formatId: ids.formats.fmtStandard,
-    startTime: '2026-09-01T18:00:00.000Z',
+    startTime: '2026-09-01T11:00',
     capacity: 16,
   })
 
@@ -46,6 +46,7 @@ describe('POST /api/events', () => {
     // Standard: swiss(50,10,15,0); cap 16 → 4 rounds → 15+240=255; min 4 players → 3 rounds → 195
     expect(res.body.maxDurationMinutes).toBe(255)
     expect(res.body.minDurationMinutes).toBe(195)
+    expect(res.body.startTime).toBe('2026-09-01T18:00:00.000Z') // 11:00 wall PDT -> UTC
     expect(res.body.endTime).toBe('2026-09-01T22:15:00.000Z')
   })
 
@@ -225,7 +226,7 @@ describe('error contract hardening (BE-3, BE-4, BE-9, BE-10, BE-6, BE-16)', () =
   it('server VALIDATION errors carry a human message (FE-4 server half)', async () => {
     const res = await request(app)
       .post('/api/events')
-      .send({ name: '', location: 'X', formatId: ids.formats.fmtStandard, startTime: '2026-09-01T18:00:00.000Z', capacity: 8 })
+      .send({ name: '', locationId: ids.locations.locMox, formatId: ids.formats.fmtStandard, startTime: '2026-09-01T11:00', capacity: 8 })
     expect(res.status).toBe(400)
     expect(typeof res.body.message).toBe('string')
     expect(res.body.message.length).toBeGreaterThan(0)
@@ -239,8 +240,8 @@ describe('error contract hardening (BE-3, BE-4, BE-9, BE-10, BE-6, BE-16)', () =
 
   it('from/to filtering compares instants, immune to ms-precision formatting (BE-4)', async () => {
     const created = await request(app).post('/api/events').send({
-      name: 'Precision', location: 'X', formatId: ids.formats.fmtStandard,
-      startTime: '2026-09-05T18:00:00Z', capacity: 8,
+      name: 'Precision', locationId: ids.locations.locMox, formatId: ids.formats.fmtStandard,
+      startTime: '2026-09-05T11:00', capacity: 8,
     })
     expect(created.status).toBe(201)
     const res = await request(app).get(
@@ -280,8 +281,8 @@ describe('data-integrity guards (BE-2, BE-5, BE-17)', () => {
       .run(gs.id, sched.id)
     const fmt = ctx.sqlite.prepare(`SELECT id FROM formats WHERE name='Catan League'`).get() as { id: number }
     const created = await request(app).post('/api/events').send({
-      name: 'Catan Night', location: 'Store', formatId: fmt.id,
-      startTime: '2026-10-01T18:00:00.000Z', capacity: 8,
+      name: 'Catan Night', locationId: ids.locations.locMox, formatId: fmt.id,
+      startTime: '2026-10-01T11:00', capacity: 8,
     })
     expect(created.status).toBe(201)
     expect(created.body.minDurationMinutes).toBeGreaterThan(0)
@@ -298,7 +299,7 @@ describe('data-integrity guards (BE-2, BE-5, BE-17)', () => {
       .run(orphan.id)
     const fmt = ctx.sqlite.prepare(`SELECT id FROM formats WHERE name='Broken'`).get() as { id: number }
     ctx.sqlite
-      .prepare(`INSERT INTO events (name, location, format_id, start_time, capacity) VALUES ('Broken Event','X',?,'2026-10-02T18:00:00.000Z',8)`)
+      .prepare(`INSERT INTO events (name, location_id, format_id, start_time, capacity) VALUES ('Broken Event',1,?,'2026-10-02T18:00:00.000Z',8)`)
       .run(fmt.id)
     const list = await request(app).get('/api/events')
     expect(list.status).toBe(200)
@@ -341,5 +342,58 @@ describe('re-review regressions (REG-*)', () => {
         .prepare(`INSERT INTO formats (game_system_id, name, min_players, schedule_id) VALUES (1,'Zero',0,1)`)
         .run(),
     ).toThrow(/CHECK/)
+  })
+})
+
+describe('locations & opening hours (spec amendment: Location entity)', () => {
+  it('lists seeded locations with hours and time zone', async () => {
+    const res = await request(app).get('/api/locations')
+    expect(res.status).toBe(200)
+    const mox = res.body.find((l: { name: string }) => l.name === 'Mox Boarding House')
+    expect(mox.timeZone).toBe('America/Los_Angeles')
+    expect(mox.openTime).toBe('10:00')
+  })
+
+  it('interprets startTime as wall time at the LOCATION, not the server/browser zone', async () => {
+    // Uncle's Games is America/New_York: 14:00 EDT on 2026-09-01 = 18:00Z.
+    const res = await request(app).post('/api/events').send({
+      name: 'East Coast Locals', locationId: ids.locations.locUncles,
+      formatId: ids.formats.fmtAdvanced, startTime: '2026-09-01T14:00', capacity: 8,
+    })
+    expect(res.status).toBe(201)
+    expect(res.body.startTime).toBe('2026-09-01T18:00:00.000Z')
+    expect(res.body.timeZone).toBe('America/New_York')
+  })
+
+  it('rejects an unknown locationId', async () => {
+    const res = await request(app).post('/api/events').send({
+      name: 'Nowhere', locationId: 9999, formatId: ids.formats.fmtStandard,
+      startTime: '2026-09-01T11:00', capacity: 8,
+    })
+    expect(res.status).toBe(400)
+    expect(res.body.error).toBe('UNKNOWN_LOCATION')
+  })
+
+  it('rejects events starting before opening or running past close at full capacity', async () => {
+    // Card Kingdom opens 09:00 — 08:00 start is too early.
+    const early = await request(app).post('/api/events').send({
+      name: 'Too Early', locationId: ids.locations.locCK,
+      formatId: ids.formats.fmtStandard, startTime: '2026-09-01T08:00', capacity: 8,
+    })
+    expect(early.status).toBe(400)
+    expect(early.body.error).toBe('OUTSIDE_OPENING_HOURS')
+    // Card Kingdom closes 22:00; Standard @ cap 8 runs 195 min: 20:00 + 3h15 = 23:15.
+    const late = await request(app).post('/api/events').send({
+      name: 'Too Late', locationId: ids.locations.locCK,
+      formatId: ids.formats.fmtStandard, startTime: '2026-09-01T20:00', capacity: 8,
+    })
+    expect(late.status).toBe(400)
+    expect(late.body.error).toBe('OUTSIDE_OPENING_HOURS')
+    // 15:00 + 3h15 = 18:15 fits 09:00–22:00.
+    const ok = await request(app).post('/api/events').send({
+      name: 'Fits', locationId: ids.locations.locCK,
+      formatId: ids.formats.fmtStandard, startTime: '2026-09-01T15:00', capacity: 8,
+    })
+    expect(ok.status).toBe(201)
   })
 })
