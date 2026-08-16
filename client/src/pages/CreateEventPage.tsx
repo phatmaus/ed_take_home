@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Button, Field, Input, Select } from '@fluentui/react-components'
+import { Button, Combobox, Field, Input, Option, Select } from '@fluentui/react-components'
 import { TimePicker } from '@fluentui/react-timepicker-compat'
 import { createEventSchema, createEventSchemaFor } from 'shared'
 import { api, type EventDto, type Format, type GameSystem } from '../api'
@@ -19,11 +19,16 @@ export default function CreateEventPage() {
   const [error, setError] = useState('')
 
   const [loadError, setLoadError] = useState(false)
+  const [knownLocations, setKnownLocations] = useState<string[]>([])
 
   useEffect(() => {
     api<GameSystem[]>('/api/game-systems')
       .then(setGameSystems)
       .catch(() => setLoadError(true))
+    // Distinct locations already in use, offered as dropdown options (freeform allows new).
+    api<{ location: string }[]>('/api/events')
+      .then((events) => setKnownLocations([...new Set(events.map((e) => e.location))].sort()))
+      .catch(() => {})
   }, [])
 
   useEffect(() => {
@@ -130,11 +135,18 @@ export default function CreateEventPage() {
         <Input data-testid="create-event-name" value={name} onChange={(_, d) => setName(d.value)} />
       </Field>
       <Field label="Location">
-        <Input
+        <Combobox
           data-testid="create-event-location"
+          freeform
+          placeholder={knownLocations.length ? 'Select or type a location…' : 'Type a location…'}
           value={location}
-          onChange={(_, d) => setLocation(d.value)}
-        />
+          onChange={(e) => setLocation(e.target.value)}
+          onOptionSelect={(_, d) => setLocation(d.optionText ?? '')}
+        >
+          {knownLocations.map((l) => (
+            <Option key={l}>{l}</Option>
+          ))}
+        </Combobox>
       </Field>
       <div style={{ display: 'flex', gap: 12 }}>
         <Field label="Date" style={{ flex: 1 }}>
