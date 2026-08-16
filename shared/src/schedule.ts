@@ -14,8 +14,9 @@ export type ScheduleInfo =
 //
 // This compresses to `Math.max(3, Math.ceil(Math.log2(players)))` — every bucket is a
 // power of two — but it stays a table on purpose:
-// - It is a transcription of the official round-count tables (MTG Tournament Rules
-//   Appendix E; Konami Tournament Policy) and can be diffed against them line by line.
+// - It mirrors the official round-count tables (MTG Tournament Rules Appendix E;
+//   Konami Tournament Policy) row-for-row through the bands this app can reach, and
+//   approximates the top band (MTR moves to 9 rounds around 226 players, not 257).
 //   The formula has to be *derived* to match, including the non-obvious floor of 3
 //   (pure ceil(log2) would give 2 rounds for 4 players; no sanctioned table does).
 // - Real tables are only *mostly* log2: e.g. Play! Pokémon runs 5 rounds from 13

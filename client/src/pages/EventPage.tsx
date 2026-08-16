@@ -22,7 +22,7 @@ export default function EventPage() {
       })
       .catch((err: ApiError) => {
         if (stale) return
-        if (err.error === 'NOT_FOUND') setNotFound(true)
+        if (err.error === 'NOT_FOUND' || err.error === 'INVALID_ID') setNotFound(true)
         else setLoadError(true)
       })
     api<{ registrationUrl: string; qrDataUrl: string }>(`/api/events/${id}/qr`)

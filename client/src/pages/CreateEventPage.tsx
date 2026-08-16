@@ -148,6 +148,8 @@ export default function CreateEventPage() {
         <Input
           data-testid="create-event-capacity"
           type="number"
+          min={selectedFormat?.minPlayers ?? 1}
+          max={30}
           value={capacity}
           onChange={(_, d) => setCapacity(d.value)}
         />
