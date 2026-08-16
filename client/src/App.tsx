@@ -9,7 +9,7 @@ function App() {
   return (
     <div style={{ maxWidth: 960, margin: '0 auto', padding: 16 }}>
       <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-        <Link to="/" style={{ textDecoration: 'none', color: 'inherit' }}>
+        <Link to="/" style={{ textDecoration: 'none', color: 'inherit' }} data-testid="nav-home">
           <Title2>TCG Event Calendar</Title2>
         </Link>
         <Link to="/events/new">
@@ -23,6 +23,7 @@ function App() {
         <Route path="/events/new" element={<CreateEventPage />} />
         <Route path="/events/:id" element={<EventPage />} />
         <Route path="/events/:id/register" element={<RegisterPage />} />
+        <Route path="*" element={<div data-testid="page-not-found">Page not found.</div>} />
       </Routes>
     </div>
   )
