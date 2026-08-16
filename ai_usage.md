@@ -1,0 +1,63 @@
+# AI Usage Log
+
+Tool: Claude Code (CLI, model: Claude Fable 5), running in a VS Code terminal.
+
+Each entry summarizes a major AI interaction: what was asked, the outcome, and whether the output was **accepted as-is**, **accepted with modifications**, **modified after push-back**, or **rejected**.
+
+---
+
+## 1. Session setup & brief review (2026-08-15 16:04)
+
+**Asked:** Read the take-home brief, set up AI-usage logging (this file plus a raw transcript log `ai_usage_raw.md`), and follow a plan-first workflow — no implementation until a plan is requested, reviewed, and approved.
+
+**Outcome:** Claude read `Take-Home.md`, created both log files, and summarized the requirements and evaluation criteria. No implementation work started.
+
+**Verdict:** Accepted as-is.
+
+## 2. CCG tournament research → `ccg_knowledge.md` (2026-08-15 ~16:10)
+
+**Asked:** Eugene (casual MTG background, no tournament experience) asked Claude to research the tournament rules of MTG, Pokémon TCG, and Yu-Gi-Oh!; identify what an organizer needs to know to schedule an event; and find what's common (templatable) vs. different, deriving a lowest-common-denominator template. Findings to `ccg_knowledge.md`.
+
+**Outcome:** Claude spawned three parallel research sub-agents (one per game) against official sources (MTG Tournament Rules/WPN, Play! Pokémon Handbook, Konami Tournament Policy v2.5), then synthesized `ccg_knowledge.md`: per-game scheduling essentials; commonalities (all three: 4-player sanctioning minimum, Swiss structure, timed rounds → predictable durations, format lists, ~8–32 practical capacity); differences (format names, Pokémon age divisions, Bo1/30-min vs Bo3/50-min, player-ID/sanctioning bureaucracy — flagged as data or out-of-scope); and a proposed LCD template (formats, default duration, min players, default/max capacity).
+
+**Verdict:** Rejected in part (after clarifying Q&A on Swiss structure and duration factors, Eugene rejected the proposed flat `defaultDurationMinutes` template field as dishonest modeling — see entry 3).
+
+## 3. Data-model design: derived durations, schedule polymorphism (2026-08-15 ~16:30)
+
+**Asked:** Eugene rejected Claude's fixed-duration template simplification and proposed his own model: `GameSystem` and `Format` entities, a polymorphic `scheduleType`/`scheduleId` reference into per-type schedule tables (starting with `SwissSchedule`: roundTimer, overtimeSlack, preEventTime, hasTopCut, breakTime), with event duration *derived* from schedule rules (min/max duration from min/max players, calendar note showing the range). Asked Claude to critique.
+
+**Outcome:** Claude endorsed the direction (better honesty and extensibility showcase) and raised five objections: (1) Event was missing the `capacity` field — the brief's most-graded constraint; (2) the `Custom` schedule type was undefined and needs a `CustomSchedule` entity; (3) `hasTopCut: boolean` is insufficient to derive maxTime (cut size is attendance-dependent, cut rounds differ) and turnover time was missing; (4) the polymorphic reference loses FK integrity — suggested a parent `Schedule(id, type)` table (class-table inheritance) as an equal-extensibility alternative; (5) Registration needs a uniqueness constraint for the rubric's duplicate-registration case. Plus minor notes (ICS uses maxTime, format naming redundancy, live-reference edit semantics).
+
+**Verdict:** Eugene accepted points 1, 4, 5 as-is; modified point 2 (chose `customDuration` on Format instead of Claude's proposed `CustomSchedule` entity); overruled point 3 (top cut cut entirely as beyond scope rather than modeled).
+
+## 4. `data_model_plan.md` drafted (2026-08-15 ~16:45)
+
+**Asked:** Produce a reviewable `data_model_plan.md` incorporating the five decisions.
+
+**Outcome:** Claude wrote the plan: GameSystem, Schedule (class-table inheritance parent), SwissSchedule child (roundTimer/overtimeSlack/preEventTime/breakTime, no top cut), Format hub (minPlayers, scheduleId, nullable customDurationMinutes), Event with validated capacity (minPlayers ≤ capacity ≤ 30) and derived min/max duration + endTime, Registration with UNIQUE(eventId, playerName) and atomic server-side capacity enforcement; pure-function duration derivation with the Swiss bucket table as a code constant; seed data; trade-off list for the README. Opened in VS Code.
+
+**Verdict:** Accepted with one modification — Eugene rejected the nullable `customDurationMinutes`-on-Format asymmetry (which Claude had flagged as awkward) and specified a `CustomSchedule` child table (`id`, unique `timeInMinutes`) with find-or-create dedup, keeping the "every Schedule has exactly one child" invariant.
+
+## 5. CustomSchedule revision applied (2026-08-15 ~16:55)
+
+**Asked:** Update the plan per Eugene's critique: CustomSchedule child table with deduplicated rows (find-or-create by timeInMinutes; widen the uniqueness constraint if fields are added).
+
+**Outcome:** Claude agreed with the child table, but pushed back with one caveat: deduplicated rows are shared between formats, so all schedule child rows (Swiss included) must be treated as immutable value objects — repointing, never in-place mutation — or a future edit feature would silently change other formats. Claude noted it would have skipped dedup for simplicity but adopted it as specified since the cost is trivial and no editing UI is in scope; the immutability rule is now documented in the plan.
+
+**Verdict:** Eugene's design adopted with Claude's immutability caveat documented.
+
+## 6. Extensibility check against two more CCGs (2026-08-15 ~17:10)
+
+**Asked:** Verify the data model extends to the next two most popular CCGs (any two acceptable — Claude picked One Piece Card Game and Disney Lorcana after a market-ranking check).
+
+**Outcome:** Two parallel research sub-agents (official Bandai / Ravensburger tournament rules). Result: both games onboard as pure seed data — no schema or code change. One Piece: Swiss Bo1 30–35 min rounds, min 4, same bucket table. Lorcana: fixed 2-game Swiss matches (scoring quirk, invisible to a time-only model), 45–50 min rounds, **min 8 players** — which validates `minPlayers` as per-Format data rather than a constant. One known soft spot reaffirmed: the Swiss rounds bucket table is a single code constant, so per-game bucket variations are approximated; promotion to SwissSchedule data is a contained future change. Findings appended to `ccg_knowledge.md` §4.
+
+**Verdict:** Accepted as-is (model unchanged; check passed).
+
+## 7. Tech-stack variants proposed (2026-08-15 ~17:20)
+
+**Asked:** Eugene fixed Node/TS + Vite, Fluent UI, Playwright, and asked for 5 stack variants with pros/cons, specifically wanting current guidance on SQLite libraries, calendar UI, and `.ics`/QR generation.
+
+**Outcome:** Claude proposed: V1 Fastify + raw better-sqlite3 + custom agenda; V2 Fastify + Drizzle + FullCalendar (recommended); V3 Hono RPC + Drizzle + react-big-calendar; V4 Next.js + Prisma (called out as worst fit for the timebox); V5 Express 5 + built-in node:sqlite + Schedule-X. Constants across all: Zod shared validation, `qrcode`, `ical-generator`. Flagged that Fluent UI has no event-calendar component (only a date picker) so a calendar lib is needed regardless, and that better-sqlite3's synchronous writes make last-seat concurrency trivially serializable — a write-up point.
+
+**Verdict:** Decided over a follow-up Q&A (SQLite drivers deep-dive, calendar libraries deep-dive, ICS/QR libraries): Eugene took Claude's library picks — better-sqlite3, Drizzle, FullCalendar, ical-generator, qrcode, Zod — but **overruled the recommended Fastify in favor of Express** (familiarity over marginal TS ergonomics). Written up in `tech_stack_plan.md`.
