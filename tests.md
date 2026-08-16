@@ -10,7 +10,13 @@ Updated in the same PR as any test change. TDD applies to pure logic and correct
 | server | POST /api/events/:id/registrations — EVENT_FULL vs ALREADY_REGISTERED vs 400 vs 404; last-seat concurrency (6 parallel → exactly one 201, count lands at capacity) | `server/src/app.test.ts` | ✅ TDD, green |
 | server | GET /api/events list + derived fields; /:id 404; invite.ics SUMMARY/DTSTART/DTEND/LOCATION/UID; /qr request-origin URL | `server/src/app.test.ts` | ✅ green |
 | client | Pages/UX | — | no unit tests by design; covered by e2e |
+| server | Review-driven specs (BE-*): duplicate-on-full → ALREADY_REGISTERED, case/whitespace identity variants, JSON error contract (bad JSON body, unknown /api route, VALIDATION messages), from/to validation + instant-precision filtering, fail-closed formats filter, canonical-id guard, .ics final CRLF + domain UID, sub-4 minPlayers derivation, orphan-schedule isolation | `server/src/app.test.ts` (30 total) | ✅ green |
+| shared | Review-driven specs: sub-4 clamp (spec change, Eugene informed — see back_end_review.md BE-2), `createEventSchemaFor` floor, startTime year bounds, inner-whitespace collapse | `shared/src/schedule.test.ts`, `shared/src/validation.test.ts` (27 total) | ✅ green |
 | e2e | Golden path: create → calendar → event page → QR link → register → fill event | — | planned (PR 6) |
 
-## Known gaps
-- None recorded yet.
+## Known gaps (honest list, per BE-18)
+- `.ics` assertions cover SUMMARY/DTSTART/DTEND/UID/LOCATION/final-CRLF; full RFC 5545 folding/escaping verified by the adversarial review, not by automated tests.
+- Cross-process concurrency (two server processes, one DB) verified manually by the review panel; the automated concurrency test is in-process only.
+- QR PNG content is asserted as a data URL, not decoded and verified to contain the URL.
+- No automated tests for the client (by design — Playwright e2e covers UX; see implementation_plan.md).
+- Past-date events accepted by design (README cut list).
