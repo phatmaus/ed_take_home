@@ -39,14 +39,33 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
     headers: { 'Content-Type': 'application/json' },
     ...init,
   })
-  const body = await res.json()
-  if (!res.ok) throw Object.assign(new Error(body.message ?? body.error ?? res.statusText), body)
+  let body: { error?: string; message?: string } | null = null
+  try {
+    body = await res.json()
+  } catch {
+    // Non-JSON response (proxy error page, HTML 500) — fall through to generic error.
+  }
+  if (!res.ok) {
+    const message =
+      body?.message ??
+      (body?.error === 'VALIDATION' ? 'Some fields are invalid.' : undefined) ??
+      `Request failed (${res.status})`
+    throw Object.assign(new Error(message), body ?? { error: `HTTP_${res.status}` })
+  }
   return body as T
 }
 
+const fmtHours = (m: number) =>
+  m % 60 === 0 ? `${m / 60}h` : `${Math.floor(m / 60)}h${String(m % 60).padStart(2, '0')}`
+
 export function durationRange(e: EventDto): string {
-  const h = (m: number) => (m % 60 === 0 ? `${m / 60}` : (m / 60).toFixed(1))
   return e.minDurationMinutes === e.maxDurationMinutes
-    ? `${h(e.maxDurationMinutes)}h`
-    : `${h(e.minDurationMinutes)}–${h(e.maxDurationMinutes)}h`
+    ? `~${fmtHours(e.maxDurationMinutes)}`
+    : `${fmtHours(e.minDurationMinutes)}–${fmtHours(e.maxDurationMinutes)}`
+}
+
+export function durationNote(e: EventDto): string {
+  return e.minDurationMinutes === e.maxDurationMinutes
+    ? `runs ${durationRange(e)}`
+    : `runs ${durationRange(e)} depending on attendance`
 }
