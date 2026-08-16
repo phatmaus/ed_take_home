@@ -1,9 +1,12 @@
 import Database from 'better-sqlite3'
 import { drizzle } from 'drizzle-orm/better-sqlite3'
+import { MAX_CAPACITY } from 'shared'
 import * as schema from './schema'
 
 // DDL mirrors schema.ts; kept as hand-written SQL to avoid a drizzle-kit migration step
-// in the timebox. CHECK on capacity duplicates the shared Zod ceiling as defense in depth.
+// in the timebox. This file is the source of truth for CHECK/collation constraints —
+// schema.ts documents shape, not constraints. Capacity ceiling comes from the shared
+// constant so the rule has one definition.
 const DDL = `
 CREATE TABLE IF NOT EXISTS game_systems (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -15,15 +18,19 @@ CREATE TABLE IF NOT EXISTS schedules (
 );
 CREATE TABLE IF NOT EXISTS swiss_schedules (
   schedule_id INTEGER PRIMARY KEY REFERENCES schedules(id),
-  round_timer_minutes INTEGER NOT NULL,
-  overtime_slack_minutes INTEGER NOT NULL,
-  pre_event_time_minutes INTEGER NOT NULL,
-  break_time_minutes INTEGER NOT NULL
+  round_timer_minutes INTEGER NOT NULL CHECK (round_timer_minutes > 0),
+  overtime_slack_minutes INTEGER NOT NULL CHECK (overtime_slack_minutes >= 0),
+  pre_event_time_minutes INTEGER NOT NULL CHECK (pre_event_time_minutes >= 0),
+  break_time_minutes INTEGER NOT NULL CHECK (break_time_minutes >= 0)
 );
 CREATE TABLE IF NOT EXISTS custom_schedules (
   schedule_id INTEGER PRIMARY KEY REFERENCES schedules(id),
-  time_in_minutes INTEGER NOT NULL UNIQUE
+  time_in_minutes INTEGER NOT NULL UNIQUE CHECK (time_in_minutes > 0)
 );
+-- Schedule child rows are shared immutable value objects; back the SWISS dedup with
+-- the same DB-level uniqueness CUSTOM already has.
+CREATE UNIQUE INDEX IF NOT EXISTS ux_swiss_params ON swiss_schedules
+  (round_timer_minutes, overtime_slack_minutes, pre_event_time_minutes, break_time_minutes);
 CREATE TABLE IF NOT EXISTS formats (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   game_system_id INTEGER NOT NULL REFERENCES game_systems(id),
@@ -37,12 +44,12 @@ CREATE TABLE IF NOT EXISTS events (
   location TEXT NOT NULL,
   format_id INTEGER NOT NULL REFERENCES formats(id),
   start_time TEXT NOT NULL,
-  capacity INTEGER NOT NULL CHECK (capacity BETWEEN 1 AND 30)
+  capacity INTEGER NOT NULL CHECK (capacity BETWEEN 1 AND ${MAX_CAPACITY})
 );
 CREATE TABLE IF NOT EXISTS registrations (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   event_id INTEGER NOT NULL REFERENCES events(id),
-  player_name TEXT NOT NULL,
+  player_name TEXT NOT NULL COLLATE NOCASE,
   created_at TEXT NOT NULL,
   UNIQUE(event_id, player_name)
 );
