@@ -16,7 +16,9 @@ test('organizer creates an event and it appears on the calendar', async ({ page 
     start.getDate(),
   ).padStart(2, '0')}`
   await page.getByTestId('create-event-date').fill(date)
-  await page.getByTestId('create-event-time').fill('19:00')
+  // TimePicker is a Combobox: open the dropdown and pick the 19:00 option.
+  await page.getByTestId('create-event-time').click()
+  await page.getByRole('option', { name: '19:00' }).click()
   await page.getByTestId('create-event-capacity').fill('12')
   await page.getByTestId('create-event-submit').click()
 

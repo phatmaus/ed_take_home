@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button, Field, Input, Select } from '@fluentui/react-components'
+import { TimePicker } from '@fluentui/react-timepicker-compat'
 import { createEventSchema, createEventSchemaFor } from 'shared'
 import { api, type EventDto, type Format, type GameSystem } from '../api'
 
@@ -145,11 +146,23 @@ export default function CreateEventPage() {
           />
         </Field>
         <Field label="Start time" style={{ flex: 1 }}>
-          <Input
+          <TimePicker
             data-testid="create-event-time"
-            type="time"
-            value={startClock}
-            onChange={(_, d) => setStartClock(d.value)}
+            freeform
+            hourCycle="h23"
+            increment={15}
+            startHour={0}
+            endHour={24}
+            placeholder="Select a time…"
+            onTimeChange={(_, data) =>
+              setStartClock(
+                data.selectedTime
+                  ? `${String(data.selectedTime.getHours()).padStart(2, '0')}:${String(
+                      data.selectedTime.getMinutes(),
+                    ).padStart(2, '0')}`
+                  : '',
+              )
+            }
           />
         </Field>
       </div>

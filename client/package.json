@@ -10,14 +10,15 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "shared": "*",
     "@fluentui/react-components": "^9.66.0",
+    "@fluentui/react-timepicker-compat": "^0.4.38",
     "@fullcalendar/core": "^6.1.15",
     "@fullcalendar/daygrid": "^6.1.15",
     "@fullcalendar/react": "^6.1.15",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-router-dom": "^7.1.0",
+    "shared": "*",
     "zod": "^3.24.0"
   },
   "devDependencies": {
