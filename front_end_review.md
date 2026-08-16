@@ -21,3 +21,13 @@ Reviewer: Opus 5 sub-agent (session-inherited medium effort), read-only, ran the
 **Clean categories (verified by reviewer):** timezone conversion of `datetime-local` → UTC (two timezones, exact), XSS via player names (escaped, no `dangerouslySetInnerHTML` anywhere), Fluent v9 Select usage, calendar click-through, client-visible last-seat race (distinct success/full rendering across two tabs).
 
 **Meta-note for the AI-usage log:** FE-1 disproves a factual claim I (Fable) made and encoded in a code comment ("the Vite proxy forwards the client's Host header") *and* covered with a passing test — the test asserted the echo of a Host header that real proxied traffic never carries. Genuine catch that a same-model review might have rationalized away.
+
+---
+
+## Second client pass (Fable @ medium, real-browser, triggered by Eugene's still-broken report)
+
+**Priority-0 verdict: the dea5fa8 datetime fix WORKS — "still broken" was a stale docker image.** Reproduced Eugene's exact flow in Chromium against the Vite dev stack, a fresh static build, and Eugene's own running container: all render "Please choose a date and start time." The pre-fix bundle was frozen in an image built before the fix (fix 18:11:28, image rebuilds 18:13+); `docker compose up` without `--build` re-served it. The doubled-jargon rendering is structurally impossible in current code (single-issue display both sides). Chromium reports `value=""` for every partial datetime-local entry path, so the guard always fires.
+
+Prior-fix verification (all hold in-browser): FE-2 stale-response guard, FE-5 shared capacity floor, FE-6/7 registration error testids incl. case+whitespace duplicate, FE-10 hidden Register when full, FE-11 `~Xh` rendering, FE-1 QR origin in the static topology, SPA route loads, zero console errors anywhere.
+
+New findings: C2-1 raw year-refine jargon for typed 2-digit years (**fixed:** friendly shared message); C2-2 SPA fallback served index.html for stale hashed assets → blank page after redeploys (**fixed:** extension-bearing paths 404); C2-3 `/events/abc` rendered the "server down" error (**fixed:** INVALID_ID → not-found); C2-4 Zod default field-jargon on omissions (**fixed:** friendly messages in shared schema); C2-5 capacity spinner missing min/max attrs (**fixed**); C2-6 register-success not a stable history entry (**rejected — scope**, no data harm).

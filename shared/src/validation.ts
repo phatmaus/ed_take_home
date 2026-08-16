@@ -10,14 +10,17 @@ const startTimeSchema = z
   .refine((s) => {
     const year = new Date(s).getUTCFullYear()
     return year >= 2000 && year <= 9000
-  }, 'startTime year must be between 2000 and 9000')
+  }, 'please double-check the year on the start date (must be 2000–9000)')
 
 export const createEventSchema = z.object({
-  name: z.string().trim().min(1).max(100),
-  location: z.string().trim().min(1).max(200),
-  formatId: z.number().int().positive(),
+  name: z.string().trim().min(1, 'please enter an event name').max(100, 'event name is too long (max 100 characters)'),
+  location: z.string().trim().min(1, 'please enter a location').max(200, 'location is too long (max 200 characters)'),
+  formatId: z
+    .number({ invalid_type_error: 'please select a game and format' })
+    .int()
+    .positive('please select a game and format'),
   startTime: startTimeSchema,
-  capacity: z.number().int().min(1).max(MAX_CAPACITY),
+  capacity: z.number({ invalid_type_error: 'capacity must be a number' }).int().min(1).max(MAX_CAPACITY, `capacity can be at most ${MAX_CAPACITY} players`),
 })
 
 // The real capacity floor is per-format data; both the React form and the API build

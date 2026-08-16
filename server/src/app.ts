@@ -305,7 +305,10 @@ export function createApp(ctx: DbCtx) {
     // keep the status, keep the JSON contract, don't escalate to 500.
     const status = e.status ?? e.statusCode
     if (typeof status === 'number' && status >= 400 && status < 500) {
-      res.status(status).json({ error: 'BAD_REQUEST', message: 'request rejected' })
+      // Keep body-parser's specific reason ("request entity too large", …) — clients
+      // need to distinguish "shrink payload" from "fix encoding".
+      const message = err instanceof Error && err.message ? err.message : 'request rejected'
+      res.status(status).json({ error: 'BAD_REQUEST', message })
       return
     }
     console.error(err)

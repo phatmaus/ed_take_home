@@ -328,7 +328,7 @@ describe('re-review regressions (REG-*)', () => {
     }
   })
 
-  it('REG-6: date-only and offset from/to bounds are usable; empty means omitted', async () => {
+  it('REG-6: offset-form from/to bounds are usable; empty means omitted (date-only stays rejected)', async () => {
     for (const q of ['?from=2020-01-01T00:00:00%2B02:00', '?from=&to=']) {
       const res = await request(app).get(`/api/events${q}`)
       expect(res.status, q).toBe(200)

@@ -22,3 +22,5 @@ Updated in the same PR as any test change. TDD applies to pure logic and correct
 - Past-date events accepted by design (README cut list).
 - `COLLATE NOCASE` folds ASCII only: `Renée`/`RENÉE` still register as two players (SQLite limitation; noted, accepted).
 - Legacy DB files (pre schema-versioning) are refused with a delete-and-reseed message rather than migrated (`server/src/db.test.ts`).
+- e2e is not retry-idempotent: the fill-the-event test consumes the seeded last seat, so `--retries`/`--repeat-each` would re-find a full event (fresh DB per invocation keeps default runs deterministic). Ports 3001/5173 must be free.
+- HEAD-mirrors-GET on client routes and the stale-asset 404 behavior verified manually in the pass-3 review, not by automated tests.

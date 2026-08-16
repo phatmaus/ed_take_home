@@ -6,18 +6,19 @@ Store organizers schedule in-store trading-card events (MTG, Pokémon, Yu-Gi-Oh!
 
 **Docker (sample data included):**
 ```sh
-docker compose up            # http://localhost:3001
-EMPTY_DB=1 docker compose up # same, but starting from an empty database
+docker compose up            # http://localhost:3001 (seeds sample data on first start only)
+EMPTY_DB=1 docker compose up # first start seeds game templates but no sample events
 ```
+Restarts never re-seed (user data and event ids survive; QR links stay valid). To reset: `docker compose down && docker compose up --build`. `EMPTY_DB` must be exactly `1`.
 
 **Locally (Node 22, tested):**
 ```sh
 npm install
-npm run seed   # sample data incl. a nearly-full event; re-run anytime to reset
+npm run seed   # sample data incl. a nearly-full event; re-running resets ALL data (ids change)
 npm run dev    # client http://localhost:5173, API :3001
 ```
 
-Tests: `npm test` (57 unit/API tests) · `npx playwright test` (golden-path e2e).
+Tests: `npm test` (63 unit/API tests) · `npx playwright test` (golden-path e2e; needs ports 3001/5173 free).
 
 ## Design write-up
 

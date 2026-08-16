@@ -11,4 +11,7 @@ RUN npm run build -w client
 ENV DB_PATH=/data/data.db
 ENV PORT=3001
 EXPOSE 3001
-CMD ["sh", "-c", "mkdir -p /data && if [ \"$EMPTY_DB\" != \"1\" ]; then npm run seed; fi && npm run start -w server"]
+# Seed only when no DB exists yet: a container restart must never wipe user data or
+# renumber event ids (P3-2 — QR links/ICS UIDs reference ids). EMPTY_DB=1 seeds
+# templates only (games/formats), no sample events — handled inside the seed script.
+CMD ["sh", "-c", "mkdir -p /data && if [ ! -f \"$DB_PATH\" ]; then npm run seed; fi && npm run start -w server"]
