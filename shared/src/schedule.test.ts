@@ -19,12 +19,19 @@ describe('swissRounds', () => {
     expect(swissRounds(players)).toBe(rounds)
   })
 
-  it('rejects player counts below the universal sanctioning floor of 4', () => {
-    expect(() => swissRounds(3)).toThrow()
-    expect(() => swissRounds(0)).toThrow()
+  // Spec change per back_end_review.md BE-2 (Eugene informed): minPlayers is template
+  // DATA — a 4th game may sanction below 4 (e.g. a 2-player board-game night), so
+  // sub-4 counts clamp into the smallest bucket instead of throwing. The old test
+  // asserting a throw encoded the bucket-table floor, contradicting the data model.
+  it('clamps player counts below 4 into the smallest bucket (3 rounds)', () => {
+    expect(swissRounds(3)).toBe(3)
+    expect(swissRounds(2)).toBe(3)
+    expect(swissRounds(1)).toBe(3)
   })
 
-  it('rejects non-integer and out-of-table counts', () => {
+  it('rejects zero/negative, non-integer, and out-of-table counts', () => {
+    expect(() => swissRounds(0)).toThrow()
+    expect(() => swissRounds(-2)).toThrow()
     expect(() => swissRounds(4.5)).toThrow()
     expect(() => swissRounds(257)).toThrow()
   })

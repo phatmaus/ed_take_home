@@ -20,12 +20,12 @@ const SWISS_ROUND_BUCKETS: Array<[maxPlayers: number, rounds: number]> = [
   [256, 8],
 ]
 
-export const MIN_SWISS_PLAYERS = 4
-
 export function swissRounds(players: number): number {
-  if (!Number.isInteger(players) || players < MIN_SWISS_PLAYERS) {
-    throw new RangeError(`Swiss requires an integer player count >= ${MIN_SWISS_PLAYERS}, got ${players}`)
+  if (!Number.isInteger(players) || players < 1) {
+    throw new RangeError(`Swiss requires a positive integer player count, got ${players}`)
   }
+  // minPlayers is template data: a game may sanction below the classic TCG floor of 4
+  // (e.g. a 2-player board-game night), so sub-4 counts clamp into the smallest bucket.
   const bucket = SWISS_ROUND_BUCKETS.find(([max]) => players <= max)
   if (!bucket) {
     throw new RangeError(`No Swiss round bucket for ${players} players`)
