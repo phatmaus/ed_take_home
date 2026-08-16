@@ -52,6 +52,12 @@ export default function CreateEventPage() {
 
   const submit = async () => {
     setError('')
+    // datetime-local reports '' until BOTH date and time are filled — catch it before
+    // Zod so the user gets one human sentence, not ISO-8601 jargon.
+    if (!startLocal) {
+      setError('Please choose a date and start time.')
+      return
+    }
     const candidate = {
       name,
       location,
@@ -64,7 +70,11 @@ export default function CreateEventPage() {
     const schema = selectedFormat ? createEventSchemaFor(selectedFormat.minPlayers) : createEventSchema
     const parsed = schema.safeParse(candidate)
     if (!parsed.success) {
-      setError(parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; '))
+      // One issue at a time; a single bad field can produce several overlapping issues.
+      const issue = parsed.error.issues[0]
+      setError(issue.message.toLowerCase().includes(String(issue.path[0]).toLowerCase())
+        ? issue.message
+        : `${issue.path.join('.')}: ${issue.message}`)
       return
     }
     try {
